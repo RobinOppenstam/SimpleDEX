@@ -1,0 +1,136 @@
+# ===================================
+# SimpleDEX Monorepo .gitignore
+# ===================================
+
+# ====================
+# Foundry/Contracts
+# ====================
+
+# Compiler artifacts
+contracts/cache/
+contracts/out/
+
+# Ignores development broadcast logs
+!/contracts/broadcast
+contracts/broadcast/*/31337/
+contracts/broadcast/**/dry-run/
+
+# Foundry cache
+contracts/.cache/
+
+# ====================
+# Next.js/Frontend
+# ====================
+
+# Dependencies
+dex-frontend/node_modules/
+
+# Production build
+dex-frontend/.next/
+dex-frontend/out/
+
+# Testing
+dex-frontend/coverage/
+
+# Misc
+dex-frontend/.DS_Store
+dex-frontend/*.log
+dex-frontend/.pnp
+dex-frontend/.pnp.js
+
+# Debug
+dex-frontend/npm-debug.log*
+dex-frontend/yarn-debug.log*
+dex-frontend/yarn-error.log*
+
+# Local env files
+dex-frontend/.env*.local
+
+# Vercel
+dex-frontend/.vercel
+
+# TypeScript
+dex-frontend/*.tsbuildinfo
+dex-frontend/next-env.d.ts
+
+# ====================
+# Environment & Secrets
+# ====================
+
+# Environment files
+.env
+.env.local
+.env.*.local
+contracts/.env
+dex-frontend/.env
+
+# Private keys
+*.key
+*.pem
+
+# ====================
+# Operating System
+# ====================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# Linux
+*~
+
+# ====================
+# IDEs & Editors
+# ====================
+
+# VSCode
+.vscode/
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
+*.code-workspace
+
+# IntelliJ IDEA
+.idea/
+*.iml
+*.iws
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Vim
+*.swp
+*.swo
+*~
+
+# ====================
+# Logs & Temps
+# ====================
+
+# Logs
+logs/
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+lerna-debug.log*
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+
+# ====================
+# Documentation
+# ====================
+
+# Auto-generated docs
+docs/
