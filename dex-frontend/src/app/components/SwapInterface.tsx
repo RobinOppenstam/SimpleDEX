@@ -6,21 +6,12 @@ import { ethers } from 'ethers';
 import TokenSelector from './TokenSelector';
 import NotificationModal, { NotificationStatus } from './NotificationModal';
 import PriceDisplay from './PriceDisplay';
+import RouteDisplay from './RouteDisplay';
 import { Token, TOKENS } from '../config/tokens';
 import { formatNumber } from '../utils/formatNumber';
 import { usePrices } from '../hooks/usePrices';
-
-const ROUTER_ABI = [
-  'function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)',
-  'function getAmountsOut(uint amountIn, address[] memory path) public view returns (uint[] memory amounts)',
-];
-
-const ERC20_ABI = [
-  'function balanceOf(address owner) view returns (uint256)',
-  'function approve(address spender, uint256 amount) returns (bool)',
-  'function allowance(address owner, address spender) view returns (uint256)',
-  'function decimals() view returns (uint8)',
-];
+import { findBestRoute, hasDirectPair, Route } from '../utils/routing';
+import { ROUTER_ABI, ERC20_ABI } from '../config/contracts';
 
 interface SwapInterfaceProps {
   signer: ethers.Signer;
@@ -44,6 +35,8 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
   const [balanceOut, setBalanceOut] = useState('0');
   const [needsApproval, setNeedsApproval] = useState(false);
   const [priceImpact, setPriceImpact] = useState<number | null>(null);
+  const [currentRoute, setCurrentRoute] = useState<Route | null>(null);
+  const [isDirect, setIsDirect] = useState(true);
 
   // Notification modal state
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -120,21 +113,40 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
     if (!tokenIn || !tokenOut) return;
 
     try {
-      const router = new ethers.Contract(contracts.ROUTER, ROUTER_ABI, signer);
       const amountInWei = ethers.parseUnits(amountIn, tokenIn.decimals);
-      const path = [tokenIn.address, tokenOut.address];
 
-      const amounts = await router.getAmountsOut(amountInWei, path);
-      const output = ethers.formatUnits(amounts[1], tokenOut.decimals);
+      // Find best route using multi-hop routing algorithm
+      const route = await findBestRoute(
+        tokenIn.symbol,
+        tokenOut.symbol,
+        amountInWei,
+        provider,
+        contracts.ROUTER
+      );
+
+      if (!route) {
+        console.warn('No route found between tokens');
+        setAmountOut('0');
+        setPriceImpact(null);
+        setCurrentRoute(null);
+        return;
+      }
+
+      // Set the route and check if it's direct
+      setCurrentRoute(route);
+      setIsDirect(hasDirectPair(tokenIn.symbol, tokenOut.symbol));
+
+      // Format output amount
+      const output = ethers.formatUnits(route.expectedOutput, tokenOut.decimals);
       setAmountOut(output);
 
       // Calculate price impact
-      const expectedRate = parseFloat(amountIn) / parseFloat(output);
       setPriceImpact(0.3); // Simplified - in production, compare to spot price
     } catch (error) {
       console.error('Error calculating output:', error);
       setAmountOut('0');
       setPriceImpact(null);
+      setCurrentRoute(null);
     }
   };
 
@@ -192,14 +204,19 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
   };
 
   const handleSwap = async () => {
-    if (!tokenIn || !tokenOut) return;
+    if (!tokenIn || !tokenOut || !currentRoute) return;
 
     try {
       setLoading(true);
+
+      const routeInfo = currentRoute.path.length > 2
+        ? ` via ${currentRoute.tokens.slice(1, -1).join(' → ')}`
+        : '';
+
       showNotification(
         'pending',
         'Swapping Tokens',
-        `Swapping ${amountIn} ${tokenIn.symbol} for ${tokenOut.symbol}...`,
+        `Swapping ${amountIn} ${tokenIn.symbol} for ${tokenOut.symbol}${routeInfo}...`,
         undefined,
         tokenIn.logoURI,
         tokenIn.symbol,
@@ -213,7 +230,9 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
       const amountInWei = ethers.parseUnits(amountIn, tokenIn.decimals);
       const amountOutWei = ethers.parseUnits(amountOut, tokenOut.decimals);
       const minAmountOut = (amountOutWei * BigInt(95)) / BigInt(100);
-      const path = [tokenIn.address, tokenOut.address];
+
+      // Use the multi-hop path from the route
+      const path = currentRoute.path;
       const deadline = Math.floor(Date.now() / 1000) + 60 * 20;
 
       const tx = await router.swapExactTokensForTokens(
@@ -229,7 +248,7 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
       showNotification(
         'success',
         'Swap Successful!',
-        `Successfully swapped ${amountIn} ${tokenIn.symbol} for ${formatNumber(amountOut)} ${tokenOut.symbol}`,
+        `Successfully swapped ${amountIn} ${tokenIn.symbol} for ${formatNumber(amountOut)} ${tokenOut.symbol}${routeInfo}`,
         tx.hash,
         tokenIn.logoURI,
         tokenIn.symbol,
@@ -239,6 +258,7 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
 
       setAmountIn('');
       setAmountOut('');
+      setCurrentRoute(null);
       loadBalances();
     } catch (error) {
       console.error('Error swapping:', error);
@@ -352,6 +372,9 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
           />
         </div>
       </div>
+
+      {/* Route Display */}
+      <RouteDisplay route={currentRoute} isDirect={isDirect} />
 
       {/* Swap Details */}
       {amountOut && parseFloat(amountOut) > 0 && tokenIn && tokenOut && (
