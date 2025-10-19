@@ -68,20 +68,42 @@ export default function PoolInfo({ provider, contracts, selectedTokenA, selected
   const loadPools = async () => {
     try {
       setLoading(true);
+      console.log('🔄 Loading pools...');
+      console.log('Factory address:', contracts.FACTORY);
+      console.log('Provider:', provider);
+
       const factory = new ethers.Contract(contracts.FACTORY, FACTORY_ABI, provider);
       const poolsData: PoolData[] = [];
 
+      // Test factory connection
+      try {
+        const pairCount = await factory.allPairsLength();
+        console.log(`✓ Factory connected - ${pairCount} pairs found`);
+      } catch (error) {
+        console.error('❌ Factory connection failed:', error);
+        throw error;
+      }
+
       // Load suggested pairs
+      console.log(`📋 Checking ${SUGGESTED_PAIRS.length} suggested pairs...`);
       for (const [symbolA, symbolB] of SUGGESTED_PAIRS) {
         const tokenA = getTokenBySymbol(symbolA);
         const tokenB = getTokenBySymbol(symbolB);
 
-        if (!tokenA || !tokenB) continue;
+        if (!tokenA || !tokenB) {
+          console.warn(`⚠️  Token not found: ${symbolA} or ${symbolB}`);
+          continue;
+        }
 
         try {
+          console.log(`  Checking ${symbolA}/${symbolB}...`);
           const pairAddress = await factory.getPair(tokenA.address, tokenB.address);
 
-          if (pairAddress === ethers.ZeroAddress) continue;
+          if (pairAddress === ethers.ZeroAddress) {
+            console.log(`    ❌ Pair ${symbolA}/${symbolB} does not exist`);
+            continue;
+          }
+          console.log(`    ✓ Pair found at ${pairAddress}`);
 
           const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
           const [reserve0, reserve1] = await pair.getReserves();
@@ -119,9 +141,14 @@ export default function PoolInfo({ provider, contracts, selectedTokenA, selected
 
       // Sort by TVL descending
       poolsData.sort((a, b) => b.tvl - a.tvl);
+      console.log(`✅ Loaded ${poolsData.length} pools successfully`);
       setPools(poolsData);
     } catch (error) {
-      console.error('Error loading pools:', error);
+      console.error('❌ Error loading pools:', error);
+      if (error instanceof Error) {
+        console.error('Error message:', error.message);
+        console.error('Error stack:', error.stack);
+      }
     } finally {
       setLoading(false);
     }

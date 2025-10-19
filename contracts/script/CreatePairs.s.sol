@@ -7,18 +7,18 @@ import "../src/DEXRouter.sol";
 import "../src/MockERC20.sol";
 
 contract CreatePairs is Script {
-    // TODO: Update these with your deployed addresses after running deploy scripts
-    address constant FACTORY = 0x5FbDB2315678afecb367f032d93F642f64180aa3; // Your factory address
-    address constant ROUTER = 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512;  // Your router address
+    // These will be read from environment or use deployed addresses
+    address FACTORY = 0x5FbDB2315678afecb367f032d93F642f64180aa3; // Default Anvil factory
+    address ROUTER = 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512;  // Default Anvil router
 
-    // Token addresses from DeployTokens.s.sol
-    address constant USDC = 0x70e0bA845a1A0F2DA3359C97E0285013525FFC49;
-    address constant USDT = 0x4826533B4897376654Bb4d4AD88B7faFD0C98528;
-    address constant DAI = 0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf;
-    address constant WETH = 0x0E801D84Fa97b50751Dbf25036d067dCf18858bF;
-    address constant WBTC = 0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf;
-    address constant LINK = 0x9d4454B023096f34B160D6B654540c56A1F81688;
-    address constant UNI = 0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00;
+    // Token addresses - will be dynamically set
+    address USDC;
+    address USDT;
+    address DAI;
+    address WETH;
+    address WBTC;
+    address LINK;
+    address UNI;
     
     struct PairToCreate {
         address tokenA;
@@ -29,6 +29,15 @@ contract CreatePairs is Script {
     }
     
     function run() external {
+        // Try to load addresses from environment
+        USDC = vm.envOr("USDC", address(0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9));
+        USDT = vm.envOr("USDT", address(0x5FC8d32690cc91D4c39d9d3abcBD16989F875707));
+        DAI = vm.envOr("DAI", address(0x0165878A594ca255338adfa4d48449f69242Eb8F));
+        WETH = vm.envOr("WETH", address(0xa513E6E4b8f2a923D98304ec87F64353C4D5C853));
+        WBTC = vm.envOr("WBTC", address(0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6));
+        LINK = vm.envOr("LINK", address(0x8A791620dd6260079BF849Dc5567aDC3F2FdC318));
+        UNI = vm.envOr("UNI", address(0x610178dA211FEF7D417bC0e6FeD39F05609AD788));
+
         DEXFactory factory = DEXFactory(FACTORY);
         DEXRouter router = DEXRouter(ROUTER);
 
@@ -77,7 +86,7 @@ contract CreatePairs is Script {
                 0,
                 msg.sender,
                 block.timestamp + 1 hours
-            ) returns (uint256 amountA, uint256 amountB, uint256 liquidity) {
+            ) returns (uint256 /* amountA */, uint256 /* amountB */, uint256 liquidity) {
                 address pairAddress = factory.getPair(pair.tokenA, pair.tokenB);
                 console.log("  Created at:", pairAddress);
                 console.log("  Liquidity:", liquidity / 10**18);

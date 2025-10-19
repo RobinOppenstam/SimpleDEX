@@ -1,8 +1,10 @@
 // app/page.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
-import { ethers } from 'ethers';
+import { useState } from 'react';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
+import { useAccount, useWalletClient, usePublicClient } from 'wagmi';
+import { walletClientToSigner, publicClientToProvider } from '@/app/utils/ethers';
 import SwapInterface from '@/app/components/SwapInterface';
 import LiquidityInterface from '@/app/components/LiquidityInterface';
 import PoolInfo from '@/app/components/PoolInfo';
@@ -18,44 +20,19 @@ const CONTRACTS = {
   TOKEN_B: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
 };
 
-const RPC_URL = 'http://127.0.0.1:8545'; // Anvil
-
 export default function Home() {
-  const [provider, setProvider] = useState<ethers.BrowserProvider | null>(null);
-  const [signer, setSigner] = useState<ethers.Signer | null>(null);
-  const [account, setAccount] = useState<string>('');
   const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'positions' | 'history'>('swap');
   const [selectedTokenA, setSelectedTokenA] = useState<Token | null>(null);
   const [selectedTokenB, setSelectedTokenB] = useState<Token | null>(null);
 
-  useEffect(() => {
-    connectWallet();
-  }, []);
+  // Wagmi hooks
+  const { address, isConnected } = useAccount();
+  const { data: walletClient } = useWalletClient();
+  const publicClient = usePublicClient();
 
-  const connectWallet = async () => {
-    try {
-      if (typeof window.ethereum !== 'undefined') {
-        const web3Provider = new ethers.BrowserProvider(window.ethereum);
-        const accounts = await web3Provider.send('eth_requestAccounts', []);
-        const web3Signer = await web3Provider.getSigner();
-        
-        setProvider(web3Provider);
-        setSigner(web3Signer);
-        setAccount(accounts[0]);
-      } else {
-        // Fallback to JSON-RPC provider for Anvil
-        const jsonProvider = new ethers.JsonRpcProvider(RPC_URL);
-        const jsonSigner = await jsonProvider.getSigner();
-        const address = await jsonSigner.getAddress();
-        
-        setProvider(jsonProvider as any);
-        setSigner(jsonSigner);
-        setAccount(address);
-      }
-    } catch (error) {
-      console.error('Error connecting wallet:', error);
-    }
-  };
+  // Convert wagmi clients to ethers providers/signers
+  const signer = walletClient ? walletClientToSigner(walletClient) : null;
+  const provider = publicClient ? publicClientToProvider(publicClient) : null;
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -65,19 +42,7 @@ export default function Home() {
           <div className="flex justify-between items-center">
             <h1 className="text-3xl font-bold text-gray-800">DEX</h1>
             <div className="flex items-center gap-4">
-              {account ? (
-                <div className="bg-white px-4 py-2 rounded-lg shadow">
-                  <p className="text-sm text-gray-600">Connected</p>
-                  <p className="text-xs font-mono">{account.slice(0, 6)}...{account.slice(-4)}</p>
-                </div>
-              ) : (
-                <button
-                  onClick={connectWallet}
-                  className="bg-indigo-600 text-white px-6 py-2 rounded-lg hover:bg-indigo-700 transition"
-                >
-                  Connect Wallet
-                </button>
-              )}
+              <ConnectButton />
             </div>
           </div>
         </header>

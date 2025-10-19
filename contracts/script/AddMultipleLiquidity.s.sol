@@ -16,14 +16,14 @@ contract AddMultipleLiquidity is Script {
     address constant FACTORY = 0x5FbDB2315678afecb367f032d93F642f64180aa3;
     address constant ROUTER = 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512;
 
-    // Token addresses
-    address constant USDC = 0x70e0bA845a1A0F2DA3359C97E0285013525FFC49;
-    address constant USDT = 0x4826533B4897376654Bb4d4AD88B7faFD0C98528;
-    address constant DAI = 0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf;
-    address constant WETH = 0x0E801D84Fa97b50751Dbf25036d067dCf18858bF;
-    address constant WBTC = 0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf;
-    address constant LINK = 0x9d4454B023096f34B160D6B654540c56A1F81688;
-    address constant UNI = 0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00;
+    // Token addresses - updated with latest deployment
+    address constant USDC = 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9;
+    address constant USDT = 0x5FC8d32690cc91D4c39d9d3abcBD16989F875707;
+    address constant DAI = 0x0165878A594ca255338adfa4d48449f69242Eb8F;
+    address constant WETH = 0xa513E6E4b8f2a923D98304ec87F64353C4D5C853;
+    address constant WBTC = 0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6;
+    address constant LINK = 0x8A791620dd6260079BF849Dc5567aDC3F2FdC318;
+    address constant UNI = 0x610178dA211FEF7D417bC0e6FeD39F05609AD788;
 
     struct LiquidityPair {
         address tokenA;

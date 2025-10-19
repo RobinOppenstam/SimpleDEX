@@ -6,6 +6,7 @@ export interface Token {
   decimals: number;
 }
 
+// Note: This file is deprecated - use src/app/config/tokens.ts instead
 export const TOKENS: Token[] = [
   {
     address: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
@@ -20,43 +21,43 @@ export const TOKENS: Token[] = [
     decimals: 18,
   },
   {
-    address: '0x70e0bA845a1A0F2DA3359C97E0285013525FFC49',
+    address: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
     symbol: 'USDC',
     name: 'USD Coin',
     decimals: 18,
   },
   {
-    address: '0x4826533B4897376654Bb4d4AD88B7faFD0C98528',
+    address: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
     symbol: 'USDT',
     name: 'Tether USD',
     decimals: 18,
   },
   {
-    address: '0x99bbA657f2BbC93c02D617f8bA121cB8Fc104Acf',
+    address: '0x0165878A594ca255338adfa4d48449f69242Eb8F',
     symbol: 'DAI',
     name: 'Dai Stablecoin',
     decimals: 18,
   },
   {
-    address: '0x0E801D84Fa97b50751Dbf25036d067dCf18858bF',
+    address: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853',
     symbol: 'WETH',
     name: 'Wrapped Ether',
     decimals: 18,
   },
   {
-    address: '0x8f86403A4DE0BB5791fa46B8e795C547942fE4Cf',
+    address: '0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6',
     symbol: 'WBTC',
     name: 'Wrapped Bitcoin',
     decimals: 18,
   },
   {
-    address: '0x9d4454B023096f34B160D6B654540c56A1F81688',
+    address: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318',
     symbol: 'LINK',
     name: 'Chainlink',
     decimals: 18,
   },
   {
-    address: '0x5eb3Bc0a489C5A8288765d2336659EbCA68FCd00',
+    address: '0x610178dA211FEF7D417bC0e6FeD39F05609AD788',
     symbol: 'UNI',
     name: 'Uniswap',
     decimals: 18,

@@ -52,6 +52,11 @@ add-liquidity:
 random-swaps:
 	@forge script script/RandomSwaps.s.sol:RandomSwaps --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --broadcast
 
+# Mint tokens to a user address (default: Anvil account #1)
+# Usage: make mint-tokens USER_ADDRESS=0xYourAddress
+mint-tokens:
+	@forge script script/MintTokensToUser.s.sol:MintTokensToUser --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --broadcast
+
 # Complete multi-token deployment (all steps)
 deploy-multi-token: deploy-tokens create-pairs
 	@echo "✅ Multi-token DEX setup complete!"
