@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import TokenSelector from './TokenSelector';
+import NotificationModal, { NotificationStatus } from './NotificationModal';
 import { Token, TOKENS } from '../config/tokens';
 import { formatNumber } from '../utils/formatNumber';
 
@@ -52,6 +53,41 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
   const [reserveA, setReserveA] = useState<bigint>(BigInt(0));
   const [reserveB, setReserveB] = useState<bigint>(BigInt(0));
   const [isFirstLiquidity, setIsFirstLiquidity] = useState(true);
+
+  // Notification modal state
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState<NotificationStatus>('pending');
+  const [notificationTitle, setNotificationTitle] = useState('');
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [notificationTxHash, setNotificationTxHash] = useState<string>();
+  const [notificationTokenIcon, setNotificationTokenIcon] = useState<string>();
+  const [notificationTokenSymbol, setNotificationTokenSymbol] = useState<string>();
+  const [notificationSecondTokenIcon, setNotificationSecondTokenIcon] = useState<string>();
+  const [notificationSecondTokenSymbol, setNotificationSecondTokenSymbol] = useState<string>();
+  const [notificationMode, setNotificationMode] = useState<'swap' | 'approval' | 'addLiquidity' | 'removeLiquidity'>('approval');
+
+  const showNotification = (
+    status: NotificationStatus,
+    title: string,
+    message: string,
+    txHash?: string,
+    tokenIcon?: string,
+    tokenSymbol?: string,
+    secondTokenIcon?: string,
+    secondTokenSymbol?: string,
+    mode: 'swap' | 'approval' | 'addLiquidity' | 'removeLiquidity' = 'approval'
+  ) => {
+    setNotificationStatus(status);
+    setNotificationTitle(title);
+    setNotificationMessage(message);
+    setNotificationTxHash(txHash);
+    setNotificationTokenIcon(tokenIcon);
+    setNotificationTokenSymbol(tokenSymbol);
+    setNotificationSecondTokenIcon(secondTokenIcon);
+    setNotificationSecondTokenSymbol(secondTokenSymbol);
+    setNotificationMode(mode);
+    setNotificationOpen(true);
+  };
 
   useEffect(() => {
     if (tokenA && tokenB) {
@@ -157,6 +193,20 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
 
     try {
       setLoading(true);
+
+      // Approve Token A
+      showNotification(
+        'pending',
+        'Approving Token 1/2',
+        `Approving ${tokenA.symbol}...`,
+        undefined,
+        tokenA.logoURI,
+        tokenA.symbol,
+        undefined,
+        undefined,
+        'approval'
+      );
+
       const tokenAContract = new ethers.Contract(tokenA.address, ERC20_ABI, signer);
       const tokenBContract = new ethers.Contract(tokenB.address, ERC20_ABI, signer);
 
@@ -166,13 +216,54 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
       const txA = await tokenAContract.approve(contracts.ROUTER, amountAWei);
       await txA.wait();
 
+      // Show success for Token A and start Token B approval
+      showNotification(
+        'success',
+        `${tokenA.symbol} Approved!`,
+        `${tokenA.symbol} approval complete. Now approving ${tokenB.symbol}...`,
+        txA.hash,
+        tokenA.logoURI,
+        tokenA.symbol,
+        undefined,
+        undefined,
+        'approval'
+      );
+
+      // Brief delay to show the success message
+      await new Promise(resolve => setTimeout(resolve, 1500));
+
+      // Approve Token B
+      showNotification(
+        'pending',
+        'Approving Token 2/2',
+        `Approving ${tokenB.symbol}...`,
+        undefined,
+        tokenB.logoURI,
+        tokenB.symbol,
+        undefined,
+        undefined,
+        'approval'
+      );
+
       const txB = await tokenBContract.approve(contracts.ROUTER, amountBWei);
       await txB.wait();
 
-      alert('Tokens approved!');
+      // Show final success
+      showNotification(
+        'success',
+        'All Tokens Approved!',
+        `${tokenA.symbol} and ${tokenB.symbol} are now approved for trading.`,
+        txB.hash,
+        tokenB.logoURI,
+        tokenB.symbol,
+        undefined,
+        undefined,
+        'approval'
+      );
     } catch (error) {
       console.error('Error approving tokens:', error);
-      alert('Approval failed');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showNotification('error', 'Approval Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -183,6 +274,18 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
 
     try {
       setLoading(true);
+      showNotification(
+        'pending',
+        'Adding Liquidity',
+        `Adding ${amountA} ${tokenA.symbol} and ${amountB} ${tokenB.symbol}...`,
+        undefined,
+        tokenA.logoURI,
+        tokenA.symbol,
+        tokenB.logoURI,
+        tokenB.symbol,
+        'addLiquidity'
+      );
+
       const router = new ethers.Contract(contracts.ROUTER, ROUTER_ABI, signer);
       const address = await signer.getAddress();
 
@@ -205,14 +308,25 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
 
       await tx.wait();
 
-      alert('Liquidity added successfully!');
+      showNotification(
+        'success',
+        'Liquidity Added!',
+        `Successfully added ${amountA} ${tokenA.symbol} and ${amountB} ${tokenB.symbol} to the pool.`,
+        tx.hash,
+        tokenA.logoURI,
+        tokenA.symbol,
+        tokenB.logoURI,
+        tokenB.symbol,
+        'addLiquidity'
+      );
       setAmountA('');
       setAmountB('');
       loadBalances();
       loadReserves();
     } catch (error) {
       console.error('Error adding liquidity:', error);
-      alert('Add liquidity failed');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showNotification('error', 'Add Liquidity Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -223,13 +337,26 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
 
     try {
       setLoading(true);
+      showNotification(
+        'pending',
+        'Removing Liquidity',
+        `Removing ${removeLiquidityAmount} LP tokens...`,
+        undefined,
+        tokenA.logoURI,
+        tokenA.symbol,
+        tokenB.logoURI,
+        tokenB.symbol,
+        'removeLiquidity'
+      );
+
       const router = new ethers.Contract(contracts.ROUTER, ROUTER_ABI, signer);
       const address = await signer.getAddress();
       const factory = new ethers.Contract(contracts.FACTORY, FACTORY_ABI, signer);
       const pairAddress = await factory.getPair(tokenA.address, tokenB.address);
 
       if (pairAddress === ethers.ZeroAddress) {
-        alert('No liquidity pool exists');
+        showNotification('error', 'No Pool Found', `No liquidity pool exists for ${tokenA.symbol}/${tokenB.symbol}`);
+        setLoading(false);
         return;
       }
 
@@ -254,13 +381,24 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
 
       await tx.wait();
 
-      alert('Liquidity removed successfully!');
+      showNotification(
+        'success',
+        'Liquidity Removed!',
+        `Successfully removed ${removeLiquidityAmount} LP tokens from ${tokenA.symbol}/${tokenB.symbol} pool.`,
+        tx.hash,
+        tokenA.logoURI,
+        tokenA.symbol,
+        tokenB.logoURI,
+        tokenB.symbol,
+        'removeLiquidity'
+      );
       setRemoveLiquidityAmount('');
       loadBalances();
       loadReserves();
     } catch (error) {
       console.error('Error removing liquidity:', error);
-      alert('Remove liquidity failed');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showNotification('error', 'Remove Liquidity Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -400,6 +538,21 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
           </button>
         </div>
       </div>
+
+      {/* Notification Modal */}
+      <NotificationModal
+        isOpen={notificationOpen}
+        status={notificationStatus}
+        title={notificationTitle}
+        message={notificationMessage}
+        txHash={notificationTxHash}
+        tokenIcon={notificationTokenIcon}
+        tokenSymbol={notificationTokenSymbol}
+        secondTokenIcon={notificationSecondTokenIcon}
+        secondTokenSymbol={notificationSecondTokenSymbol}
+        mode={notificationMode}
+        onClose={() => setNotificationOpen(false)}
+      />
     </div>
   );
 }

@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import TokenSelector from './TokenSelector';
+import NotificationModal, { NotificationStatus } from './NotificationModal';
 import { Token, TOKENS } from '../config/tokens';
 import { formatNumber } from '../utils/formatNumber';
 
@@ -38,6 +39,38 @@ export default function SwapInterface({ signer, contracts, onTokenChange }: Swap
   const [balanceOut, setBalanceOut] = useState('0');
   const [needsApproval, setNeedsApproval] = useState(false);
   const [priceImpact, setPriceImpact] = useState<number | null>(null);
+
+  // Notification modal state
+  const [notificationOpen, setNotificationOpen] = useState(false);
+  const [notificationStatus, setNotificationStatus] = useState<NotificationStatus>('pending');
+  const [notificationTitle, setNotificationTitle] = useState('');
+  const [notificationMessage, setNotificationMessage] = useState('');
+  const [notificationTxHash, setNotificationTxHash] = useState<string>();
+  const [notificationTokenIcon, setNotificationTokenIcon] = useState<string>();
+  const [notificationTokenSymbol, setNotificationTokenSymbol] = useState<string>();
+  const [notificationSecondTokenIcon, setNotificationSecondTokenIcon] = useState<string>();
+  const [notificationSecondTokenSymbol, setNotificationSecondTokenSymbol] = useState<string>();
+
+  const showNotification = (
+    status: NotificationStatus,
+    title: string,
+    message: string,
+    txHash?: string,
+    tokenIcon?: string,
+    tokenSymbol?: string,
+    secondTokenIcon?: string,
+    secondTokenSymbol?: string
+  ) => {
+    setNotificationStatus(status);
+    setNotificationTitle(title);
+    setNotificationMessage(message);
+    setNotificationTxHash(txHash);
+    setNotificationTokenIcon(tokenIcon);
+    setNotificationTokenSymbol(tokenSymbol);
+    setNotificationSecondTokenIcon(secondTokenIcon);
+    setNotificationSecondTokenSymbol(secondTokenSymbol);
+    setNotificationOpen(true);
+  };
 
   useEffect(() => {
     if (tokenIn && tokenOut) {
@@ -120,17 +153,34 @@ export default function SwapInterface({ signer, contracts, onTokenChange }: Swap
 
     try {
       setLoading(true);
+      showNotification(
+        'pending',
+        'Approving Token',
+        `Approving ${tokenIn.symbol} for trading...`,
+        undefined,
+        tokenIn.logoURI,
+        tokenIn.symbol
+      );
+
       const contract = new ethers.Contract(tokenIn.address, ERC20_ABI, signer);
       const amountInWei = ethers.parseUnits(amountIn, tokenIn.decimals);
-      
+
       const tx = await contract.approve(contracts.ROUTER, amountInWei);
       await tx.wait();
-      
+
       setNeedsApproval(false);
-      alert('Approval successful!');
+      showNotification(
+        'success',
+        'Approval Successful!',
+        `${tokenIn.symbol} is now approved for trading.`,
+        tx.hash,
+        tokenIn.logoURI,
+        tokenIn.symbol
+      );
     } catch (error) {
       console.error('Error approving token:', error);
-      alert('Approval failed');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showNotification('error', 'Approval Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -141,9 +191,20 @@ export default function SwapInterface({ signer, contracts, onTokenChange }: Swap
 
     try {
       setLoading(true);
+      showNotification(
+        'pending',
+        'Swapping Tokens',
+        `Swapping ${amountIn} ${tokenIn.symbol} for ${tokenOut.symbol}...`,
+        undefined,
+        tokenIn.logoURI,
+        tokenIn.symbol,
+        tokenOut.logoURI,
+        tokenOut.symbol
+      );
+
       const router = new ethers.Contract(contracts.ROUTER, ROUTER_ABI, signer);
       const address = await signer.getAddress();
-      
+
       const amountInWei = ethers.parseUnits(amountIn, tokenIn.decimals);
       const amountOutWei = ethers.parseUnits(amountOut, tokenOut.decimals);
       const minAmountOut = (amountOutWei * BigInt(95)) / BigInt(100);
@@ -159,14 +220,25 @@ export default function SwapInterface({ signer, contracts, onTokenChange }: Swap
       );
 
       await tx.wait();
-      
-      alert('Swap successful!');
+
+      showNotification(
+        'success',
+        'Swap Successful!',
+        `Successfully swapped ${amountIn} ${tokenIn.symbol} for ${formatNumber(amountOut)} ${tokenOut.symbol}`,
+        tx.hash,
+        tokenIn.logoURI,
+        tokenIn.symbol,
+        tokenOut.logoURI,
+        tokenOut.symbol
+      );
+
       setAmountIn('');
       setAmountOut('');
       loadBalances();
     } catch (error) {
       console.error('Error swapping:', error);
-      alert('Swap failed');
+      const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
+      showNotification('error', 'Swap Failed', errorMessage);
     } finally {
       setLoading(false);
     }
@@ -305,6 +377,20 @@ export default function SwapInterface({ signer, contracts, onTokenChange }: Swap
           {loading ? 'Swapping...' : 'Swap'}
         </button>
       )}
+
+      {/* Notification Modal */}
+      <NotificationModal
+        isOpen={notificationOpen}
+        status={notificationStatus}
+        title={notificationTitle}
+        message={notificationMessage}
+        txHash={notificationTxHash}
+        tokenIcon={notificationTokenIcon}
+        tokenSymbol={notificationTokenSymbol}
+        secondTokenIcon={notificationSecondTokenIcon}
+        secondTokenSymbol={notificationSecondTokenSymbol}
+        onClose={() => setNotificationOpen(false)}
+      />
     </div>
   );
 }
