@@ -20,6 +20,7 @@ const PAIR_ABI = [
   'function token1() external view returns (address)',
   'function balanceOf(address owner) view returns (uint256)',
   'function totalSupply() view returns (uint256)',
+  'function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)',
 ];
 
 interface AnalyticsProps {
@@ -38,6 +39,7 @@ interface PairStats {
   totalSwaps: number;
   activeLPHolders: number;
   volumeUSD: number;
+  tvlUSD: number;
 }
 
 export default function Analytics({ provider, contracts }: AnalyticsProps) {
@@ -45,6 +47,7 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
   const [totalSwaps, setTotalSwaps] = useState(0);
   const [totalLPPositions, setTotalLPPositions] = useState(0);
   const [totalVolumeUSD, setTotalVolumeUSD] = useState(0);
+  const [totalTVL, setTotalTVL] = useState(0);
   const [pairStats, setPairStats] = useState<PairStats[]>([]);
 
   // Fetch real-time prices from Chainlink oracles
@@ -76,6 +79,7 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
       let totalSwapCount = 0;
       let totalLPCount = 0;
       let totalVolumeUSDCount = 0;
+      let totalTVLCount = 0;
       const stats: PairStats[] = [];
 
       console.log(`Loading analytics for ${Number(pairsLength)} pairs...`);
@@ -99,6 +103,14 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
           }
 
           console.log(`Analyzing pair: ${token0.symbol}/${token1.symbol}`);
+
+          // Get reserves to calculate TVL
+          const [reserve0, reserve1] = await pair.getReserves();
+          const tvl0USD = calculateUSDValue(token0.symbol, reserve0);
+          const tvl1USD = calculateUSDValue(token1.symbol, reserve1);
+          const pairTVL = tvl0USD + tvl1USD;
+          totalTVLCount += pairTVL;
+          console.log(`${token0.symbol}/${token1.symbol}: $${pairTVL.toFixed(2)} TVL`);
 
           // Count total swaps and calculate volume for this pair
           const swapFilter = pair.filters.Swap();
@@ -164,6 +176,7 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
             totalSwaps: swapCount,
             activeLPHolders,
             volumeUSD: pairVolumeUSD,
+            tvlUSD: pairTVL,
           });
 
         } catch (error) {
@@ -175,9 +188,10 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
       setTotalSwaps(totalSwapCount);
       setTotalLPPositions(totalLPCount);
       setTotalVolumeUSD(totalVolumeUSDCount);
+      setTotalTVL(totalTVLCount);
       setPairStats(stats);
 
-      console.log(`Analytics loaded: ${totalSwapCount} swaps, ${totalLPCount} LP positions, $${totalVolumeUSDCount.toFixed(2)} volume`);
+      console.log(`Analytics loaded: ${totalSwapCount} swaps, ${totalLPCount} LP positions, $${totalVolumeUSDCount.toFixed(2)} volume, $${totalTVLCount.toFixed(2)} TVL`);
 
     } catch (error) {
       console.error('Error loading analytics:', error);
@@ -215,7 +229,7 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
       </div>
 
       {/* Main Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         {/* Total Volume */}
         <div className="bg-gradient-to-br from-purple-500 to-purple-600 rounded-2xl shadow-lg p-8 text-white">
           <div className="flex items-center justify-between">
@@ -258,7 +272,23 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
             </div>
             <div className="bg-white bg-opacity-20 rounded-full p-4">
               <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+              </svg>
+            </div>
+          </div>
+        </div>
+
+        {/* Total TVL */}
+        <div className="bg-gradient-to-br from-blue-500 to-blue-600 rounded-2xl shadow-lg p-8 text-white">
+          <div className="flex items-center justify-between">
+            <div>
+              <p className="text-blue-100 text-sm font-medium mb-2">Total Value Locked</p>
+              <p className="text-5xl font-bold">${totalTVL.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+              <p className="text-blue-100 text-sm mt-2">Across all pools</p>
+            </div>
+            <div className="bg-white bg-opacity-20 rounded-full p-4">
+              <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
               </svg>
             </div>
           </div>
@@ -314,6 +344,12 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
 
                   <div className="flex gap-6">
                     <div className="text-right">
+                      <p className="text-xs text-gray-500 mb-1">TVL</p>
+                      <p className="text-2xl font-bold text-blue-600">
+                        {stat.tvlUSD > 0 ? `$${stat.tvlUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
+                      </p>
+                    </div>
+                    <div className="text-right">
                       <p className="text-xs text-gray-500 mb-1">Volume</p>
                       <p className="text-2xl font-bold text-purple-600">
                         {stat.volumeUSD > 0 ? `$${stat.volumeUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
@@ -347,7 +383,8 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
               All data is queried directly from the blockchain. Statistics include all historical activity since deployment.
             </p>
             <ul className="list-disc list-inside text-sm text-blue-800 mt-2 space-y-1">
-              <li>Total Volume: USD value calculated from stablecoin pairs (USDC, USDT, DAI)</li>
+              <li>Total Value Locked (TVL): Current dollar value of all assets in liquidity pools</li>
+              <li>Total Volume: Cumulative USD value of all swaps using real-time Chainlink prices</li>
               <li>Total Swaps: Count of all swap transactions across all pairs</li>
               <li>Active LP Positions: Addresses currently holding LP tokens (balance {'>'} 0)</li>
               <li>Data is updated in real-time when you refresh</li>

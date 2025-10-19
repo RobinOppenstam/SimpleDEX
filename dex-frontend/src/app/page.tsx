@@ -8,13 +8,13 @@ import { ethers } from 'ethers';
 import { walletClientToSigner, publicClientToProvider } from '@/app/utils/ethers';
 import SwapInterface from '@/app/components/SwapInterface';
 import LiquidityInterface from '@/app/components/LiquidityInterface';
-import PoolInfo from '@/app/components/PoolInfo';
+// import PoolInfo from '@/app/components/PoolInfo';
 import LPPositions from '@/app/components/LPPositions';
 import SwapHistory from '@/app/components/SwapHistory';
 import Faucet from '@/app/components/Faucet';
 import Analytics from '@/app/components/Analytics';
 import Market from '@/app/components/Market';
-import { Token } from '@/app/config/tokens';
+// import { Token } from '@/app/config/tokens';
 
 // Replace with your deployed contract addresses
 const CONTRACTS = {
@@ -26,8 +26,8 @@ const CONTRACTS = {
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'positions' | 'history' | 'faucet' | 'analytics' | 'market'>('swap');
-  const [selectedTokenA, setSelectedTokenA] = useState<Token | null>(null);
-  const [selectedTokenB, setSelectedTokenB] = useState<Token | null>(null);
+  // const [selectedTokenA, setSelectedTokenA] = useState<Token | null>(null);
+  // const [selectedTokenB, setSelectedTokenB] = useState<Token | null>(null);
 
   // Wagmi hooks
   const { address, isConnected } = useAccount();
@@ -46,18 +46,17 @@ export default function Home() {
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
         <header className="mb-8">
-          <div className="flex justify-between items-center">
-            <h1 className="text-3xl font-bold text-gray-800">DEX</h1>
-            <div className="flex items-center gap-4">
+          <div className="flex items-center relative">
+            <h1 className="text-4xl font-bold text-gray-800 w-full text-center">Simple DEX</h1>
+            <div className="absolute right-0">
               <ConnectButton />
             </div>
           </div>
         </header>
 
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-          {/* Main Interface */}
-          <div className="lg:col-span-2">
-            <div className="bg-white rounded-2xl shadow-lg p-6">
+        {/* Main Interface - Centered */}
+        <div className="max-w-4xl mx-auto">
+          <div className="bg-white rounded-2xl shadow-lg p-6">
               {/* Tabs */}
               <div className="flex gap-2 mb-6 border-b overflow-x-auto">
                 <button
@@ -138,9 +137,8 @@ export default function Home() {
                   signer={signer}
                   provider={provider}
                   contracts={CONTRACTS}
-                  onTokenChange={(tokenA, tokenB) => {
-                    setSelectedTokenA(tokenA);
-                    setSelectedTokenB(tokenB);
+                  onTokenChange={() => {
+                    // Token change handler removed (PoolInfo hidden)
                   }}
                 />
               )}
@@ -148,9 +146,8 @@ export default function Home() {
                 <LiquidityInterface
                   signer={signer}
                   contracts={CONTRACTS}
-                  onTokenChange={(tokenA, tokenB) => {
-                    setSelectedTokenA(tokenA);
-                    setSelectedTokenB(tokenB);
+                  onTokenChange={() => {
+                    // Token change handler removed (PoolInfo hidden)
                   }}
                 />
               )}
@@ -169,21 +166,20 @@ export default function Home() {
               {activeTab === 'market' && provider && (
                 <Market provider={provider} />
               )}
-            </div>
-          </div>
-
-          {/* Pool Info Sidebar */}
-          <div className="lg:col-span-1">
-            {provider && (
-              <PoolInfo
-                provider={provider}
-                contracts={CONTRACTS}
-                selectedTokenA={selectedTokenA}
-                selectedTokenB={selectedTokenB}
-              />
-            )}
           </div>
         </div>
+
+        {/* Pool Info Sidebar - Hidden */}
+        {/* <div className="lg:col-span-1">
+          {provider && (
+            <PoolInfo
+              provider={provider}
+              contracts={CONTRACTS}
+              selectedTokenA={selectedTokenA}
+              selectedTokenB={selectedTokenB}
+            />
+          )}
+        </div> */}
       </div>
     </div>
   );
