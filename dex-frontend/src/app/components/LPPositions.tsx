@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { Token, getAllTokens } from '../config/tokens';
 import { formatNumber, formatPercent } from '../utils/formatNumber';
+import LPTokenIcon from './LPTokenIcon';
 
 const FACTORY_ABI = [
   'function getPair(address tokenA, address tokenB) external view returns (address pair)',
@@ -165,30 +166,13 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
             {/* Header */}
             <div className="flex justify-between items-start mb-4">
               <div className="flex items-center gap-3">
-                <div className="flex -space-x-2">
-                  {position.tokenA.logoURI ? (
-                    <img
-                      src={position.tokenA.logoURI}
-                      alt={position.tokenA.symbol}
-                      className="w-10 h-10 rounded-full border-2 border-white"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center text-white font-bold text-sm border-2 border-white">
-                      {position.tokenA.symbol.slice(0, 2)}
-                    </div>
-                  )}
-                  {position.tokenB.logoURI ? (
-                    <img
-                      src={position.tokenB.logoURI}
-                      alt={position.tokenB.symbol}
-                      className="w-10 h-10 rounded-full border-2 border-white"
-                    />
-                  ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-bold text-sm border-2 border-white">
-                      {position.tokenB.symbol.slice(0, 2)}
-                    </div>
-                  )}
-                </div>
+                <LPTokenIcon
+                  token0LogoURI={position.tokenA.logoURI}
+                  token1LogoURI={position.tokenB.logoURI}
+                  token0Symbol={position.tokenA.symbol}
+                  token1Symbol={position.tokenB.symbol}
+                  size="md"
+                />
                 <div>
                   <h3 className="text-lg font-bold">
                     {position.tokenA.symbol}/{position.tokenB.symbol}

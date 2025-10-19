@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { getTokenByAddress } from '../config/tokens';
 import { usePrices } from '../hooks/usePrices';
+import LPTokenIcon from './LPTokenIcon';
 
 const FACTORY_ABI = [
   'function allPairs(uint) external view returns (address pair)',
@@ -315,23 +316,14 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    {/* LP Token Icon - Overlapping tokens */}
-                    <div className="relative w-12 h-10">
-                      {stat.token0Logo && (
-                        <img
-                          src={stat.token0Logo}
-                          alt={stat.token0Symbol}
-                          className="absolute left-0 top-0 w-10 h-10 rounded-full border-2 border-white shadow-md"
-                        />
-                      )}
-                      {stat.token1Logo && (
-                        <img
-                          src={stat.token1Logo}
-                          alt={stat.token1Symbol}
-                          className="absolute right-0 top-0 w-10 h-10 rounded-full border-2 border-white shadow-md"
-                        />
-                      )}
-                    </div>
+                    {/* LP Token Icon - Split circle design */}
+                    <LPTokenIcon
+                      token0LogoURI={stat.token0Logo}
+                      token1LogoURI={stat.token1Logo}
+                      token0Symbol={stat.token0Symbol}
+                      token1Symbol={stat.token1Symbol}
+                      size="md"
+                    />
                     <div>
                       <p className="font-semibold text-gray-800 text-lg">
                         {stat.token0Symbol} / {stat.token1Symbol}
