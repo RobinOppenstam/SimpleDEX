@@ -4,6 +4,7 @@
 import { useState } from 'react';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount, useWalletClient, usePublicClient } from 'wagmi';
+import { ethers } from 'ethers';
 import { walletClientToSigner, publicClientToProvider } from '@/app/utils/ethers';
 import SwapInterface from '@/app/components/SwapInterface';
 import LiquidityInterface from '@/app/components/LiquidityInterface';
@@ -12,18 +13,19 @@ import LPPositions from '@/app/components/LPPositions';
 import SwapHistory from '@/app/components/SwapHistory';
 import Faucet from '@/app/components/Faucet';
 import Analytics from '@/app/components/Analytics';
+import Market from '@/app/components/Market';
 import { Token } from '@/app/config/tokens';
 
 // Replace with your deployed contract addresses
 const CONTRACTS = {
-  ROUTER: '0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512',
-  FACTORY: '0x5FbDB2315678afecb367f032d93F642f64180aa3',
-  TOKEN_A: '0x9fE46736679d2D9a65F0992F2272dE9f3c7fa6e0',
-  TOKEN_B: '0xCf7Ed3AccA5a467e9e704C703E8D87F634fB0Fc9',
+  ROUTER: '0x7a9ec1d04904907de0ed7b6839ccdd59c3716ac9',
+  FACTORY: '0x4c2f7092c2ae51d986befee378e50bd4db99c901',
+  TOKEN_A: '0x49fd2be640db2910c2fab69bb8531ab6e76127ff',
+  TOKEN_B: '0x4631bcabd6df18d94796344963cb60d44a4136b6',
 };
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'positions' | 'history' | 'faucet' | 'analytics'>('swap');
+  const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'positions' | 'history' | 'faucet' | 'analytics' | 'market'>('swap');
   const [selectedTokenA, setSelectedTokenA] = useState<Token | null>(null);
   const [selectedTokenB, setSelectedTokenB] = useState<Token | null>(null);
 
@@ -34,7 +36,10 @@ export default function Home() {
 
   // Convert wagmi clients to ethers providers/signers
   const signer = walletClient ? walletClientToSigner(walletClient) : null;
-  const provider = publicClient ? publicClientToProvider(publicClient) : null;
+  const wagmiProvider = publicClient ? publicClientToProvider(publicClient) : null;
+
+  // Fallback to JSON-RPC provider if wagmi provider is not available
+  const provider = wagmiProvider || new ethers.JsonRpcProvider('http://localhost:8545');
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
@@ -115,12 +120,23 @@ export default function Home() {
                 >
                   Analytics
                 </button>
+                <button
+                  onClick={() => setActiveTab('market')}
+                  className={`px-6 py-3 font-semibold transition whitespace-nowrap ${
+                    activeTab === 'market'
+                      ? 'text-indigo-600 border-b-2 border-indigo-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Market
+                </button>
               </div>
 
               {/* Content */}
-              {activeTab === 'swap' && signer && (
+              {activeTab === 'swap' && signer && provider && (
                 <SwapInterface
                   signer={signer}
+                  provider={provider}
                   contracts={CONTRACTS}
                   onTokenChange={(tokenA, tokenB) => {
                     setSelectedTokenA(tokenA);
@@ -149,6 +165,9 @@ export default function Home() {
               )}
               {activeTab === 'analytics' && provider && (
                 <Analytics provider={provider} contracts={CONTRACTS} />
+              )}
+              {activeTab === 'market' && provider && (
+                <Market provider={provider} />
               )}
             </div>
           </div>

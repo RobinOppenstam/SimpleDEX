@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { Token, SUGGESTED_PAIRS, getTokenBySymbol } from '../config/tokens';
 import { formatNumber } from '../utils/formatNumber';
+import { usePrices } from '../hooks/usePrices';
 
 const FACTORY_ABI = [
   'function getPair(address tokenA, address tokenB) external view returns (address pair)',
@@ -42,6 +43,7 @@ export default function PoolInfo({ provider, contracts, selectedTokenA, selected
   const [pools, setPools] = useState<PoolData[]>([]);
   const [loading, setLoading] = useState(true);
   const [selectedPool, setSelectedPool] = useState<number>(0);
+  const { prices } = usePrices(provider);
 
   useEffect(() => {
     loadPools();
@@ -188,6 +190,35 @@ export default function PoolInfo({ provider, contracts, selectedTokenA, selected
     ? parseFloat(currentPool.reserveA) / parseFloat(currentPool.reserveB)
     : 0;
 
+  // Calculate USD values using Chainlink prices
+  const calculateUSDValue = (tokenSymbol: string, amount: string): number => {
+    const price = prices[tokenSymbol];
+    if (!price || price === 0) return 0;
+    const tokenAmount = parseFloat(amount);
+    return tokenAmount * price;
+  };
+
+  const reserveAUSD = calculateUSDValue(currentPool.tokenA.symbol, currentPool.reserveA);
+  const reserveBUSD = calculateUSDValue(currentPool.tokenB.symbol, currentPool.reserveB);
+  const totalTVL = reserveAUSD + reserveBUSD;
+
+  const formatUSD = (value: number): string => {
+    if (value === 0) return '$0.00';
+    if (value < 0.01) return '<$0.01';
+    if (value >= 1000000) {
+      return `$${(value / 1000000).toFixed(2)}M`;
+    }
+    if (value >= 1000) {
+      return `$${(value / 1000).toFixed(2)}K`;
+    }
+    return new Intl.NumberFormat('en-US', {
+      style: 'currency',
+      currency: 'USD',
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    }).format(value);
+  };
+
   return (
     <div className="bg-white rounded-2xl shadow-lg p-6">
       <div className="flex justify-between items-center mb-4">
@@ -259,7 +290,10 @@ export default function PoolInfo({ provider, contracts, selectedTokenA, selected
                 )}
                 <span className="font-medium text-sm">{currentPool.tokenA.symbol}</span>
               </div>
-              <span className="font-bold">{formatNumber(currentPool.reserveA)}</span>
+              <div className="text-right">
+                <div className="font-bold">{formatNumber(currentPool.reserveA)}</div>
+                <div className="text-xs text-gray-600">{formatUSD(reserveAUSD)}</div>
+              </div>
             </div>
             <div className="flex justify-between items-center">
               <div className="flex items-center gap-2">
@@ -276,9 +310,20 @@ export default function PoolInfo({ provider, contracts, selectedTokenA, selected
                 )}
                 <span className="font-medium text-sm">{currentPool.tokenB.symbol}</span>
               </div>
-              <span className="font-bold">{formatNumber(currentPool.reserveB)}</span>
+              <div className="text-right">
+                <div className="font-bold">{formatNumber(currentPool.reserveB)}</div>
+                <div className="text-xs text-gray-600">{formatUSD(reserveBUSD)}</div>
+              </div>
             </div>
           </div>
+          {totalTVL > 0 && (
+            <div className="mt-3 pt-3 border-t border-indigo-200">
+              <div className="flex justify-between items-center">
+                <span className="text-sm font-semibold text-gray-700">Total Pool TVL</span>
+                <span className="text-lg font-bold text-indigo-600">{formatUSD(totalTVL)}</span>
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Prices */}
@@ -287,11 +332,21 @@ export default function PoolInfo({ provider, contracts, selectedTokenA, selected
           <div className="space-y-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-600">1 {currentPool.tokenA.symbol} =</span>
-              <span className="font-semibold">{formatNumber(priceAinB)} {currentPool.tokenB.symbol}</span>
+              <div className="text-right">
+                <div className="font-semibold">{formatNumber(priceAinB)} {currentPool.tokenB.symbol}</div>
+                {prices[currentPool.tokenA.symbol] && (
+                  <div className="text-xs text-gray-500">{formatUSD(prices[currentPool.tokenA.symbol])}</div>
+                )}
+              </div>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-600">1 {currentPool.tokenB.symbol} =</span>
-              <span className="font-semibold">{formatNumber(priceBinA)} {currentPool.tokenA.symbol}</span>
+              <div className="text-right">
+                <div className="font-semibold">{formatNumber(priceBinA)} {currentPool.tokenA.symbol}</div>
+                {prices[currentPool.tokenB.symbol] && (
+                  <div className="text-xs text-gray-500">{formatUSD(prices[currentPool.tokenB.symbol])}</div>
+                )}
+              </div>
             </div>
           </div>
         </div>

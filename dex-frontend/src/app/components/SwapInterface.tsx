@@ -5,8 +5,10 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import TokenSelector from './TokenSelector';
 import NotificationModal, { NotificationStatus } from './NotificationModal';
+import PriceDisplay from './PriceDisplay';
 import { Token, TOKENS } from '../config/tokens';
 import { formatNumber } from '../utils/formatNumber';
+import { usePrices } from '../hooks/usePrices';
 
 const ROUTER_ABI = [
   'function swapExactTokensForTokens(uint amountIn, uint amountOutMin, address[] calldata path, address to, uint deadline) external returns (uint[] memory amounts)',
@@ -22,6 +24,7 @@ const ERC20_ABI = [
 
 interface SwapInterfaceProps {
   signer: ethers.Signer;
+  provider: ethers.Provider;
   contracts: {
     ROUTER: string;
     FACTORY: string;
@@ -29,7 +32,9 @@ interface SwapInterfaceProps {
   onTokenChange?: (tokenA: Token | null, tokenB: Token | null) => void;
 }
 
-export default function SwapInterface({ signer, contracts, onTokenChange }: SwapInterfaceProps) {
+export default function SwapInterface({ signer, provider, contracts, onTokenChange }: SwapInterfaceProps) {
+  // Fetch real-time prices from Chainlink oracles
+  const { prices } = usePrices(provider);
   const [tokenIn, setTokenIn] = useState<Token | null>(TOKENS.WETH);
   const [tokenOut, setTokenOut] = useState<Token | null>(TOKENS.USDC);
   const [amountIn, setAmountIn] = useState('');
@@ -265,13 +270,23 @@ export default function SwapInterface({ signer, contracts, onTokenChange }: Swap
           )}
         </div>
         <div className="flex items-center gap-3">
-          <input
-            type="number"
-            value={amountIn}
-            onChange={(e) => setAmountIn(e.target.value)}
-            placeholder="0.0"
-            className="flex-1 bg-transparent text-2xl font-semibold outline-none"
-          />
+          <div className="flex-1">
+            <input
+              type="number"
+              value={amountIn}
+              onChange={(e) => setAmountIn(e.target.value)}
+              placeholder="0.0"
+              className="w-full bg-transparent text-2xl font-semibold outline-none"
+            />
+            {tokenIn && amountIn && parseFloat(amountIn) > 0 && (
+              <PriceDisplay
+                symbol={tokenIn.symbol}
+                amount={amountIn}
+                prices={prices}
+                className="mt-1"
+              />
+            )}
+          </div>
           <TokenSelector
             selectedToken={tokenIn}
             onSelect={setTokenIn}
@@ -312,13 +327,23 @@ export default function SwapInterface({ signer, contracts, onTokenChange }: Swap
           )}
         </div>
         <div className="flex items-center gap-3">
-          <input
-            type="number"
-            value={amountOut}
-            readOnly
-            placeholder="0.0"
-            className="flex-1 bg-transparent text-2xl font-semibold outline-none"
-          />
+          <div className="flex-1">
+            <input
+              type="number"
+              value={amountOut}
+              readOnly
+              placeholder="0.0"
+              className="w-full bg-transparent text-2xl font-semibold outline-none"
+            />
+            {tokenOut && amountOut && parseFloat(amountOut) > 0 && (
+              <PriceDisplay
+                symbol={tokenOut.symbol}
+                amount={amountOut}
+                prices={prices}
+                className="mt-1"
+              />
+            )}
+          </div>
           <TokenSelector
             selectedToken={tokenOut}
             onSelect={setTokenOut}

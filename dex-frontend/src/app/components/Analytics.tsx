@@ -4,6 +4,7 @@
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { getTokenByAddress } from '../config/tokens';
+import { usePrices } from '../hooks/usePrices';
 
 const FACTORY_ABI = [
   'function allPairs(uint) external view returns (address pair)',
@@ -46,25 +47,23 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
   const [totalVolumeUSD, setTotalVolumeUSD] = useState(0);
   const [pairStats, setPairStats] = useState<PairStats[]>([]);
 
+  // Fetch real-time prices from Chainlink oracles
+  const { prices } = usePrices(provider);
+
   useEffect(() => {
-    loadAnalytics();
-  }, [provider]);
-
-  // Helper function to estimate USD value of token amounts
-  const estimateUSDValue = (token0Symbol: string, token1Symbol: string, amount0: bigint, amount1: bigint): number => {
-    const stablecoins = ['mUSDC', 'mUSDT', 'mDAI'];
-
-    // If either token is a stablecoin, use its amount directly
-    if (stablecoins.includes(token0Symbol)) {
-      return Number(ethers.formatUnits(amount0, 18));
+    if (Object.keys(prices).length > 0) {
+      loadAnalytics();
     }
-    if (stablecoins.includes(token1Symbol)) {
-      return Number(ethers.formatUnits(amount1, 18));
-    }
+  }, [provider, prices]);
 
-    // For non-stablecoin pairs, we can't accurately estimate without price oracle
-    // Return 0 for now, or we could use approximate prices
-    return 0;
+  // Helper function to calculate USD value of token amounts using Chainlink prices
+  const calculateUSDValue = (tokenSymbol: string, amount: bigint): number => {
+    const price = prices[tokenSymbol];
+    if (!price || price === 0) return 0;
+
+    // Convert token amount to USD
+    const tokenAmount = Number(ethers.formatUnits(amount, 18));
+    return tokenAmount * price;
   };
 
   const loadAnalytics = async () => {
@@ -107,20 +106,17 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
           const swapCount = swapEvents.length;
           totalSwapCount += swapCount;
 
-          // Calculate volume in USD
+          // Calculate volume in USD using Chainlink prices
           let pairVolumeUSD = 0;
           for (const event of swapEvents) {
             if ('args' in event && event.args) {
               const { amount0In, amount1In, amount0Out, amount1Out } = event.args;
 
               // Calculate volume from the "in" amounts (what user sold)
-              const volumeUSD = estimateUSDValue(
-                token0.symbol,
-                token1.symbol,
-                amount0In,
-                amount1In
-              );
-              pairVolumeUSD += volumeUSD;
+              // Sum both sides to get total volume
+              const volume0USD = calculateUSDValue(token0.symbol, amount0In);
+              const volume1USD = calculateUSDValue(token1.symbol, amount1In);
+              pairVolumeUSD += volume0USD + volume1USD;
             }
           }
 

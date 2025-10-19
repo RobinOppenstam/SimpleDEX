@@ -24,7 +24,7 @@ export interface TokenList {
 // Main token registry - Updated with latest Anvil deployment
 export const TOKENS: Record<string, Token> = {
   mUSDC: {
-    address: '0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9',
+    address: '0x86a2ee8faf9a840f7a2c64ca3d51209f9a02081d',
     symbol: 'mUSDC',
     name: 'Mock USD Coin',
     decimals: 18,
@@ -32,7 +32,7 @@ export const TOKENS: Record<string, Token> = {
     logoURI: '/USDC.png',
   },
   mUSDT: {
-    address: '0x5FC8d32690cc91D4c39d9d3abcBD16989F875707',
+    address: '0xa4899d35897033b927acfcf422bc745916139776',
     symbol: 'mUSDT',
     name: 'Mock Tether USD',
     decimals: 18,
@@ -40,7 +40,7 @@ export const TOKENS: Record<string, Token> = {
     logoURI: '/USDT.png',
   },
   mDAI: {
-    address: '0x0165878A594ca255338adfa4d48449f69242Eb8F',
+    address: '0xf953b3a269d80e3eb0f2947630da976b896a8c5b',
     symbol: 'mDAI',
     name: 'Mock Dai Stablecoin',
     decimals: 18,
@@ -48,28 +48,28 @@ export const TOKENS: Record<string, Token> = {
     logoURI: '/DAI.png',
   },
   mWETH: {
-    address: '0xa513E6E4b8f2a923D98304ec87F64353C4D5C853',
+    address: '0xaa292e8611adf267e563f334ee42320ac96d0463',
     symbol: 'mWETH',
     name: 'Mock Wrapped Ether',
     decimals: 18,
     logoURI: '/WETH.png',
   },
   mWBTC: {
-    address: '0x2279B7A0a67DB372996a5FaB50D91eAA73d2eBe6',
+    address: '0x5c74c94173f05da1720953407cbb920f3df9f887',
     symbol: 'mWBTC',
     name: 'Mock Wrapped Bitcoin',
     decimals: 18,
     logoURI: '/bitcoin.png',
   },
   mLINK: {
-    address: '0x8A791620dd6260079BF849Dc5567aDC3F2FdC318',
+    address: '0x720472c8ce72c2a2d711333e064abd3e6bbeadd3',
     symbol: 'mLINK',
     name: 'Mock Chainlink',
     decimals: 18,
     logoURI: '/LINK.png',
   },
   mUNI: {
-    address: '0x610178dA211FEF7D417bC0e6FeD39F05609AD788',
+    address: '0xe8d2a1e88c91dcd5433208d4152cc4f399a7e91d',
     symbol: 'mUNI',
     name: 'Mock Uniswap',
     decimals: 18,
