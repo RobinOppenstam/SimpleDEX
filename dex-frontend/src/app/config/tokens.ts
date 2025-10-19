@@ -85,7 +85,7 @@ export const getTokenByAddress = (address: string): Token | undefined => {
 };
 
 export const getTokenBySymbol = (symbol: string): Token | undefined => {
-  return TOKENS[symbol.toUpperCase()];
+  return TOKENS[symbol];
 };
 
 export const getAllTokens = (): Token[] => {
