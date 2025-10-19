@@ -32,6 +32,8 @@ interface PairStats {
   pairAddress: string;
   token0Symbol: string;
   token1Symbol: string;
+  token0Logo?: string;
+  token1Logo?: string;
   totalSwaps: number;
   activeLPHolders: number;
   volumeUSD: number;
@@ -50,7 +52,7 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
 
   // Helper function to estimate USD value of token amounts
   const estimateUSDValue = (token0Symbol: string, token1Symbol: string, amount0: bigint, amount1: bigint): number => {
-    const stablecoins = ['USDC', 'USDT', 'DAI'];
+    const stablecoins = ['mUSDC', 'mUSDT', 'mDAI'];
 
     // If either token is a stablecoin, use its amount directly
     if (stablecoins.includes(token0Symbol)) {
@@ -161,6 +163,8 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
             pairAddress,
             token0Symbol: token0.symbol,
             token1Symbol: token1.symbol,
+            token0Logo: token0.logoURI,
+            token1Logo: token1.logoURI,
             totalSwaps: swapCount,
             activeLPHolders,
             volumeUSD: pairVolumeUSD,
@@ -285,8 +289,22 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
               >
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="bg-indigo-100 rounded-full w-10 h-10 flex items-center justify-center">
-                      <span className="text-indigo-600 font-bold text-sm">#{index + 1}</span>
+                    {/* LP Token Icon - Overlapping tokens */}
+                    <div className="relative w-12 h-10">
+                      {stat.token0Logo && (
+                        <img
+                          src={stat.token0Logo}
+                          alt={stat.token0Symbol}
+                          className="absolute left-0 top-0 w-10 h-10 rounded-full border-2 border-white shadow-md"
+                        />
+                      )}
+                      {stat.token1Logo && (
+                        <img
+                          src={stat.token1Logo}
+                          alt={stat.token1Symbol}
+                          className="absolute right-0 top-0 w-10 h-10 rounded-full border-2 border-white shadow-md"
+                        />
+                      )}
                     </div>
                     <div>
                       <p className="font-semibold text-gray-800 text-lg">
