@@ -55,7 +55,7 @@ export default function Home() {
         </header>
 
         {/* Main Interface - Centered */}
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-7xl mx-auto">
           <div className="bg-white rounded-2xl shadow-lg p-6">
               {/* Tabs */}
               <div className="flex gap-2 mb-6 border-b overflow-x-auto">

@@ -1,7 +1,7 @@
 // app/components/Analytics.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { ethers } from 'ethers';
 import { getTokenByAddress } from '../config/tokens';
 import { usePrices } from '../hooks/usePrices';
@@ -41,6 +41,11 @@ interface PairStats {
   activeLPHolders: number;
   volumeUSD: number;
   tvlUSD: number;
+  accruedFeesUSD: number;
+  feesToken0: string;
+  feesToken1: string;
+  apr: number;
+  apy: number;
 }
 
 export default function Analytics({ provider, contracts }: AnalyticsProps) {
@@ -50,15 +55,18 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
   const [totalVolumeUSD, setTotalVolumeUSD] = useState(0);
   const [totalTVL, setTotalTVL] = useState(0);
   const [pairStats, setPairStats] = useState<PairStats[]>([]);
+  const hasLoadedRef = useRef(false);
 
   // Fetch real-time prices from Chainlink oracles
   const { prices } = usePrices(provider);
 
   useEffect(() => {
-    if (Object.keys(prices).length > 0) {
+    // Only load analytics once when prices are available
+    if (Object.keys(prices).length > 0 && !hasLoadedRef.current) {
+      hasLoadedRef.current = true;
       loadAnalytics();
     }
-  }, [provider, prices]);
+  }, [prices]);
 
   // Helper function to calculate USD value of token amounts using Chainlink prices
   const calculateUSDValue = (tokenSymbol: string, amount: bigint): number => {
@@ -168,6 +176,49 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
           totalLPCount += activeLPHolders;
           console.log(`${token0.symbol}/${token1.symbol}: ${activeLPHolders} active LP holders`);
 
+          // Calculate accrued fees (0.3% of volume)
+          const accruedFeesUSD = pairVolumeUSD * 0.003;
+
+          // Calculate fees in each token (approximate 50/50 split)
+          let feesToken0Amount = BigInt(0);
+          let feesToken1Amount = BigInt(0);
+
+          for (const event of swapEvents) {
+            if ('args' in event && event.args) {
+              const { amount0In, amount1In } = event.args;
+              // 0.3% fee on input amounts
+              feesToken0Amount += (amount0In * BigInt(3)) / BigInt(1000);
+              feesToken1Amount += (amount1In * BigInt(3)) / BigInt(1000);
+            }
+          }
+
+          // Calculate APR and APY
+          let apr = 0;
+          let apy = 0;
+
+          if (pairTVL > 0 && swapEvents.length > 0) {
+            // Get first and last swap timestamps to calculate time period
+            const firstSwapBlock = await provider.getBlock(swapEvents[0].blockNumber);
+            const lastSwapBlock = await provider.getBlock(swapEvents[swapEvents.length - 1].blockNumber);
+
+            if (firstSwapBlock && lastSwapBlock) {
+              const firstTimestamp = firstSwapBlock.timestamp;
+              const lastTimestamp = lastSwapBlock.timestamp;
+              const timeElapsedSeconds = lastTimestamp - firstTimestamp;
+              const timeElapsedDays = timeElapsedSeconds / (60 * 60 * 24);
+
+              if (timeElapsedDays > 0) {
+                // APR = (Fees / TVL) * (365 / days) * 100
+                apr = (accruedFeesUSD / pairTVL) * (365 / timeElapsedDays) * 100;
+
+                // APY = (1 + daily_rate)^365 - 1
+                // Assuming fees compound daily
+                const dailyRate = accruedFeesUSD / pairTVL / timeElapsedDays;
+                apy = (Math.pow(1 + dailyRate, 365) - 1) * 100;
+              }
+            }
+          }
+
           stats.push({
             pairAddress,
             token0Symbol: token0.symbol,
@@ -178,6 +229,11 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
             activeLPHolders,
             volumeUSD: pairVolumeUSD,
             tvlUSD: pairTVL,
+            accruedFeesUSD,
+            feesToken0: ethers.formatUnits(feesToken0Amount, 18),
+            feesToken1: ethers.formatUnits(feesToken1Amount, 18),
+            apr,
+            apy,
           });
 
         } catch (error) {
@@ -297,7 +353,7 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
       </div>
 
       {/* Pair-by-Pair Breakdown */}
-      <div className="bg-white rounded-2xl shadow-lg p-6">
+      <div className="bg-white rounded-2xl shadow-lg p-6 overflow-x-auto">
         <h3 className="text-xl font-bold text-gray-800 mb-4">Pair Statistics</h3>
 
         {pairStats.length === 0 ? (
@@ -312,10 +368,10 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
             {pairStats.map((stat, index) => (
               <div
                 key={stat.pairAddress}
-                className="border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow"
+                className="border border-gray-200 rounded-xl p-5 hover:shadow-md transition-shadow min-w-max"
               >
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-3">
+                <div className="flex items-center justify-between gap-8">
+                  <div className="flex items-center gap-3 min-w-[200px]">
                     {/* LP Token Icon - Split circle design */}
                     <LPTokenIcon
                       token0LogoURI={stat.token0Logo}
@@ -335,24 +391,36 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
                   </div>
 
                   <div className="flex gap-6">
-                    <div className="text-right">
+                    <div className="text-right min-w-[100px]">
                       <p className="text-xs text-gray-500 mb-1">TVL</p>
                       <p className="text-2xl font-bold text-blue-600">
                         {stat.tvlUSD > 0 ? `$${stat.tvlUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right min-w-[100px]">
                       <p className="text-xs text-gray-500 mb-1">Volume</p>
                       <p className="text-2xl font-bold text-purple-600">
                         {stat.volumeUSD > 0 ? `$${stat.volumeUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
                       </p>
                     </div>
-                    <div className="text-right">
+                    <div className="text-right min-w-[100px]">
+                      <p className="text-xs text-gray-500 mb-1">Fees</p>
+                      <p className="text-2xl font-bold text-emerald-600">
+                        {stat.accruedFeesUSD > 0 ? `$${stat.accruedFeesUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })}` : '-'}
+                      </p>
+                    </div>
+                    <div className="text-right min-w-[90px]">
+                      <p className="text-xs text-gray-500 mb-1">APR</p>
+                      <p className="text-2xl font-bold text-orange-600">
+                        {stat.apr > 0 ? `${stat.apr.toFixed(2)}%` : '-'}
+                      </p>
+                    </div>
+                    <div className="text-right min-w-[80px]">
                       <p className="text-xs text-gray-500 mb-1">Swaps</p>
                       <p className="text-2xl font-bold text-indigo-600">{stat.totalSwaps}</p>
                     </div>
-                    <div className="text-right">
-                      <p className="text-xs text-gray-500 mb-1">LP Positions</p>
+                    <div className="text-right min-w-[80px]">
+                      <p className="text-xs text-gray-500 mb-1">LPs</p>
                       <p className="text-2xl font-bold text-green-600">{stat.activeLPHolders}</p>
                     </div>
                   </div>
@@ -377,6 +445,8 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
             <ul className="list-disc list-inside text-sm text-blue-800 mt-2 space-y-1">
               <li>Total Value Locked (TVL): Current dollar value of all assets in liquidity pools</li>
               <li>Total Volume: Cumulative USD value of all swaps using real-time Chainlink prices</li>
+              <li>Fees: Total trading fees collected (0.3% of swap volume, distributed to LPs)</li>
+              <li>APR (Annual Percentage Rate): Annualized return from trading fees based on historical activity</li>
               <li>Total Swaps: Count of all swap transactions across all pairs</li>
               <li>Active LP Positions: Addresses currently holding LP tokens (balance {'>'} 0)</li>
               <li>Data is updated in real-time when you refresh</li>
