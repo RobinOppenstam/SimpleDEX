@@ -10,6 +10,7 @@ import LiquidityInterface from '@/app/components/LiquidityInterface';
 import PoolInfo from '@/app/components/PoolInfo';
 import LPPositions from '@/app/components/LPPositions';
 import SwapHistory from '@/app/components/SwapHistory';
+import Faucet from '@/app/components/Faucet';
 import { Token } from '@/app/config/tokens';
 
 // Replace with your deployed contract addresses
@@ -21,7 +22,7 @@ const CONTRACTS = {
 };
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'positions' | 'history'>('swap');
+  const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'positions' | 'history' | 'faucet'>('swap');
   const [selectedTokenA, setSelectedTokenA] = useState<Token | null>(null);
   const [selectedTokenB, setSelectedTokenB] = useState<Token | null>(null);
 
@@ -93,6 +94,16 @@ export default function Home() {
                 >
                   Swap History
                 </button>
+                <button
+                  onClick={() => setActiveTab('faucet')}
+                  className={`px-6 py-3 font-semibold transition whitespace-nowrap ${
+                    activeTab === 'faucet'
+                      ? 'text-indigo-600 border-b-2 border-indigo-600'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                >
+                  Faucet
+                </button>
               </div>
 
               {/* Content */}
@@ -121,6 +132,9 @@ export default function Home() {
               )}
               {activeTab === 'history' && signer && (
                 <SwapHistory signer={signer} contracts={CONTRACTS} />
+              )}
+              {activeTab === 'faucet' && signer && (
+                <Faucet signer={signer} />
               )}
             </div>
           </div>
