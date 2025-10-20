@@ -28,9 +28,13 @@ test-gas:
 anvil:
 	anvil
 
-# Full startup: Deploy everything and execute random swaps
+# Full startup: Deploy everything locally on Anvil (static prices)
 startup:
 	@./startup.sh
+
+# Full deployment to Sepolia testnet (real Chainlink prices)
+startup-sepolia:
+	@./startup-sepolia.sh
 
 # Deploy to Anvil
 deploy-anvil:
@@ -69,9 +73,37 @@ mint-tokens:
 deploy-multi-token: deploy-tokens create-pairs
 	@echo "✅ Multi-token DEX setup complete!"
 
-# Deploy to Sepolia
+# ================================
+# Sepolia Testnet Commands
+# ================================
+
+# Deploy Factory & Router to Sepolia
 deploy-sepolia:
-	@forge script script/Deploy.s.sol:DeployDEX --rpc-url ${SEPOLIA_RPC_URL} --private-key ${PRIVATE_KEY} --broadcast --verify
+	@forge script script/Deploy.s.sol:DeployScript --rpc-url ${SEPOLIA_RPC_URL} --private-key ${SEPOLIA_PRIVATE_KEY} --broadcast --verify --etherscan-api-key ${ETHERSCAN_API_KEY}
+
+# Deploy tokens to Sepolia
+deploy-tokens-sepolia:
+	@forge script script/DeployTokens.s.sol:DeployTokens --rpc-url ${SEPOLIA_RPC_URL} --private-key ${SEPOLIA_PRIVATE_KEY} --broadcast --verify --etherscan-api-key ${ETHERSCAN_API_KEY}
+
+# Deploy REAL Chainlink price feeds to Sepolia
+deploy-pricefeeds-sepolia:
+	@forge script script/DeployRealPriceFeeds.s.sol:DeployRealPriceFeeds --rpc-url ${SEPOLIA_RPC_URL} --private-key ${SEPOLIA_PRIVATE_KEY} --broadcast --verify --etherscan-api-key ${ETHERSCAN_API_KEY}
+
+# Deploy faucet to Sepolia
+deploy-faucet-sepolia:
+	@forge script script/DeployFaucet.s.sol:DeployFaucet --rpc-url ${SEPOLIA_RPC_URL} --private-key ${SEPOLIA_PRIVATE_KEY} --broadcast --verify --etherscan-api-key ${ETHERSCAN_API_KEY}
+
+# Create pairs on Sepolia
+create-pairs-sepolia:
+	@forge script script/CreatePairs.s.sol:CreatePairs --rpc-url ${SEPOLIA_RPC_URL} --private-key ${SEPOLIA_PRIVATE_KEY} --broadcast
+
+# Add liquidity on Sepolia
+add-liquidity-sepolia:
+	@forge script script/AddMultipleLiquidity.s.sol:AddMultipleLiquidity --rpc-url ${SEPOLIA_RPC_URL} --private-key ${SEPOLIA_PRIVATE_KEY} --broadcast
+
+# Use faucet on Sepolia
+use-faucet-sepolia:
+	@forge script script/UseFaucet.s.sol:UseFaucet --rpc-url ${SEPOLIA_RPC_URL} --private-key ${SEPOLIA_PRIVATE_KEY} --broadcast
 
 # Format code
 format:

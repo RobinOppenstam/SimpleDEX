@@ -3,8 +3,9 @@
 
 import { useState, useEffect, useCallback } from 'react';
 import { ethers } from 'ethers';
-import { TOKENS } from '../config/tokens';
-import { PRICE_ORACLE_ADDRESS, PRICE_ORACLE_ABI, formatPrice } from '../config/priceFeeds';
+import { getTokensForNetwork } from '../config/tokens';
+import { PRICE_ORACLE_ABI, formatPrice } from '../config/priceFeeds';
+import { useNetwork } from '@/hooks/useNetwork';
 
 export interface TokenPrices {
   [symbol: string]: number; // Price in USD
@@ -21,16 +22,22 @@ export interface UsePricesReturn {
 /**
  * Hook to fetch and subscribe to real-time token prices from Chainlink price feeds
  * @param provider Ethereum provider
- * @param refreshInterval Refresh interval in milliseconds (default: 15000 = 15 seconds)
+ * @param refreshInterval Optional refresh interval override in milliseconds (uses network config by default)
  */
 export function usePrices(
   provider: ethers.Provider | null,
-  refreshInterval: number = 15000
+  refreshInterval?: number
 ): UsePricesReturn {
+  const { network } = useNetwork();
   const [prices, setPrices] = useState<TokenPrices>({});
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
+
+  // Use network-specific refresh interval or override
+  // Convert network interval from seconds to milliseconds
+  const actualRefreshInterval = refreshInterval ?? (network?.features.priceUpdateInterval ?? 15) * 1000;
+  const priceOracleAddress = network?.contracts.priceOracle || '';
 
   const fetchPrices = useCallback(async () => {
     if (!provider) {
@@ -39,14 +46,24 @@ export function usePrices(
       return;
     }
 
+    if (!priceOracleAddress) {
+      console.log('[usePrices] No price oracle address configured for current network');
+      setLoading(false);
+      return;
+    }
+
     try {
-      console.log('[usePrices] Fetching prices from oracle:', PRICE_ORACLE_ADDRESS);
+      console.log('[usePrices] Fetching prices from oracle:', priceOracleAddress);
+      console.log('[usePrices] Network:', network?.name, '| Real feeds:', network?.features.realPriceFeeds);
       setError(null);
-      const oracle = new ethers.Contract(PRICE_ORACLE_ADDRESS, PRICE_ORACLE_ABI, provider);
+      const oracle = new ethers.Contract(priceOracleAddress, PRICE_ORACLE_ABI, provider);
       const newPrices: TokenPrices = {};
 
+      // Get tokens for current network
+      const tokens = getTokensForNetwork(network?.chainId || 31337);
+
       // Fetch prices for all tokens
-      for (const [symbol, token] of Object.entries(TOKENS)) {
+      for (const [symbol, token] of Object.entries(tokens)) {
         try {
           console.log(`[usePrices] Fetching price for ${symbol} at ${token.address}`);
           const [priceRaw, decimals] = await oracle.getLatestPrice(token.address);
@@ -54,10 +71,24 @@ export function usePrices(
           newPrices[symbol] = price;
 
           console.log(`[usePrices] ${symbol}: $${price.toFixed(2)} (raw: ${priceRaw.toString()}, decimals: ${decimals})`);
-        } catch (err) {
-          console.error(`[usePrices] Error fetching price for ${symbol}:`, err);
-          // Set to 0 if fetch fails
-          newPrices[symbol] = 0;
+        } catch (err: any) {
+          // Check if error is PriceFeedNotSet (0x7e68a045)
+          const isPriceFeedNotSet = err?.data === '0x7e68a045' ||
+                                     err?.message?.includes('0x7e68a045') ||
+                                     err?.message?.includes('PriceFeedNotSet');
+
+          if (isPriceFeedNotSet) {
+            // Set fallback prices for tokens without Chainlink feeds
+            const fallbackPrices: Record<string, number> = {
+              mUNI: 12.00,  // UNI token fallback price
+            };
+            const fallbackPrice = fallbackPrices[symbol] || 0;
+            newPrices[symbol] = fallbackPrice;
+            console.log(`[usePrices] ${symbol}: Using fallback price $${fallbackPrice.toFixed(2)} (no Chainlink feed available)`);
+          } else {
+            console.error(`[usePrices] Error fetching price for ${symbol}:`, err);
+            newPrices[symbol] = 0;
+          }
         }
       }
 
@@ -70,23 +101,24 @@ export function usePrices(
       setError(err instanceof Error ? err : new Error('Unknown error'));
       setLoading(false);
     }
-  }, [provider]);
+  }, [provider, priceOracleAddress, network]);
 
   // Initial fetch
   useEffect(() => {
     fetchPrices();
   }, [provider]);
 
-  // Set up periodic refresh
+  // Set up periodic refresh (only if interval > 0, for static prices on Anvil we don't refresh)
   useEffect(() => {
-    if (!provider) return;
+    if (!provider || actualRefreshInterval === 0) return;
 
+    console.log(`[usePrices] Setting up refresh every ${actualRefreshInterval / 1000}s`);
     const interval = setInterval(() => {
       fetchPrices();
-    }, refreshInterval);
+    }, actualRefreshInterval);
 
     return () => clearInterval(interval);
-  }, [provider, refreshInterval, fetchPrices]);
+  }, [provider, actualRefreshInterval, fetchPrices]);
 
   // Subscribe to new blocks for more real-time updates (optional)
   useEffect(() => {

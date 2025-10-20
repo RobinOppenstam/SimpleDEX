@@ -1,6 +1,6 @@
 // Multi-hop routing algorithm for DEX
 import { ethers } from 'ethers';
-import { TOKENS, SUGGESTED_PAIRS } from '../config/tokens';
+import { getTokensForNetwork, SUGGESTED_PAIRS } from '../config/tokens';
 import { ROUTER_ABI } from '../config/contracts';
 
 export interface Route {
@@ -14,14 +14,23 @@ export interface Route {
  * Build a graph of available trading pairs
  * Returns adjacency list: token address -> array of connected token addresses
  */
-function buildPairGraph(): Map<string, Set<string>> {
+function buildPairGraph(chainId: number): Map<string, Set<string>> {
   const graph = new Map<string, Set<string>>();
+  const TOKENS = getTokensForNetwork(chainId);
 
   SUGGESTED_PAIRS.forEach(([symbolA, symbolB]) => {
     const tokenA = TOKENS[symbolA];
     const tokenB = TOKENS[symbolB];
 
-    if (!tokenA || !tokenB) return;
+    if (!tokenA || !tokenB) {
+      console.log(`[routing] Skipping pair ${symbolA}/${symbolB} - token not found`);
+      return;
+    }
+
+    if (!tokenA.address || !tokenB.address) {
+      console.log(`[routing] Skipping pair ${symbolA}/${symbolB} - empty address`);
+      return;
+    }
 
     const addrA = tokenA.address.toLowerCase();
     const addrB = tokenB.address.toLowerCase();
@@ -40,15 +49,17 @@ function buildPairGraph(): Map<string, Set<string>> {
  * Find all possible routes between two tokens using BFS
  * @param fromAddress - Source token address
  * @param toAddress - Destination token address
+ * @param chainId - Network chain ID
  * @param maxHops - Maximum number of hops (default 3, meaning up to 4 tokens in path)
  * @returns Array of possible routes (paths)
  */
 function findAllRoutes(
   fromAddress: string,
   toAddress: string,
+  chainId: number,
   maxHops: number = 3
 ): string[][] {
-  const graph = buildPairGraph();
+  const graph = buildPairGraph(chainId);
   const routes: string[][] = [];
 
   const from = fromAddress.toLowerCase();
@@ -92,7 +103,8 @@ function findAllRoutes(
 /**
  * Get token symbols from addresses for display
  */
-function getTokenSymbols(addresses: string[]): string[] {
+function getTokenSymbols(addresses: string[], chainId: number): string[] {
+  const TOKENS = getTokensForNetwork(chainId);
   return addresses.map((addr) => {
     const token = Object.values(TOKENS).find(
       (t) => t.address.toLowerCase() === addr.toLowerCase()
@@ -127,6 +139,7 @@ async function calculateRouteOutput(
  * @param amountIn - Input amount in wei
  * @param provider - Ethers provider
  * @param routerAddress - DEX Router contract address
+ * @param chainId - Network chain ID
  * @returns Best route with expected output
  */
 export async function findBestRoute(
@@ -134,18 +147,31 @@ export async function findBestRoute(
   toSymbol: string,
   amountIn: bigint,
   provider: ethers.Provider,
-  routerAddress: string
+  routerAddress: string,
+  chainId: number
 ): Promise<Route | null> {
+  const TOKENS = getTokensForNetwork(chainId);
   const fromToken = TOKENS[fromSymbol];
   const toToken = TOKENS[toSymbol];
+
+  console.log(`[findBestRoute] Looking for route ${fromSymbol} -> ${toSymbol} on chain ${chainId}`, {
+    fromToken: fromToken?.address,
+    toToken: toToken?.address,
+  });
 
   if (!fromToken || !toToken) {
     console.error('Token not found:', fromSymbol, toSymbol);
     return null;
   }
 
+  if (!fromToken.address || !toToken.address) {
+    console.error('Token has empty address:', { fromSymbol, fromToken, toSymbol, toToken });
+    return null;
+  }
+
   // Find all possible routes
-  const possiblePaths = findAllRoutes(fromToken.address, toToken.address);
+  const possiblePaths = findAllRoutes(fromToken.address, toToken.address, chainId);
+  console.log(`[findBestRoute] Found ${possiblePaths.length} possible paths:`, possiblePaths);
 
   if (possiblePaths.length === 0) {
     console.warn('No route found between', fromSymbol, 'and', toSymbol);
@@ -166,7 +192,7 @@ export async function findBestRoute(
     if (expectedOutput > 0n) {
       routes.push({
         path,
-        tokens: getTokenSymbols(path),
+        tokens: getTokenSymbols(path, chainId),
         expectedOutput,
         priceImpact: 0, // Will be calculated if needed
       });

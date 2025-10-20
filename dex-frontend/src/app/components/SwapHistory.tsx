@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
 import { Token, getAllTokens, getTokenByAddress } from '../config/tokens';
 import { formatNumber } from '../utils/formatNumber';
+import { useNetwork } from '@/hooks/useNetwork';
 
 const FACTORY_ABI = [
   'function getPair(address tokenA, address tokenB) external view returns (address pair)',
@@ -47,10 +48,11 @@ export default function SwapHistory({ signer, contracts }: SwapHistoryProps) {
   const [swaps, setSwaps] = useState<SwapEvent[]>([]);
   const [loading, setLoading] = useState(true);
   const [userAddress, setUserAddress] = useState<string>('');
+  const { chainId } = useNetwork();
 
   useEffect(() => {
     loadSwapHistory();
-  }, [signer]);
+  }, [signer, chainId]);
 
   const loadSwapHistory = async () => {
     try {
@@ -79,11 +81,16 @@ export default function SwapHistory({ signer, contracts }: SwapHistoryProps) {
           const token0Address = await pair.token0();
           const token1Address = await pair.token1();
 
-          const token0 = getTokenByAddress(token0Address);
-          const token1 = getTokenByAddress(token1Address);
+          const token0 = getTokenByAddress(token0Address, chainId);
+          const token1 = getTokenByAddress(token1Address, chainId);
 
           if (!token0 || !token1) {
-            console.log(`Skipping pair ${pairAddress} - tokens not in registry`);
+            console.log(`Skipping pair ${pairAddress} - tokens not in registry (chain: ${chainId})`, {
+              token0Address,
+              token1Address,
+              foundToken0: !!token0,
+              foundToken1: !!token1,
+            });
             continue;
           }
 

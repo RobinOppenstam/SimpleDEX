@@ -63,29 +63,35 @@ contract CreatePairs is Script {
         DEXRouter router = DEXRouter(addrs.router);
 
         // Define pairs to create with initial liquidity
-        // Amounts designed for testnet: $40k-50k TVL per major pair
+        // Optimized for testnet: $10k-20k TVL per major pair
+        // Provides good trading depth while minimizing deployment costs
         // Price assumptions: ETH=$3,400, BTC=$95,000, LINK=$20, UNI=$12
         PairToCreate[] memory pairs = new PairToCreate[](10);
 
-        // Major stablecoin pairs: $50k TVL each
-        pairs[0] = PairToCreate(addrs.mUSDC, addrs.mUSDT, 50000 * 10**18, 50000 * 10**18, "mUSDC/mUSDT");
-        pairs[1] = PairToCreate(addrs.mUSDC, addrs.mDAI, 50000 * 10**18, 50000 * 10**18, "mUSDC/mDAI");
+        // Major stablecoin pairs: $20k TVL each
+        // High liquidity for stable swaps, minimal slippage
+        pairs[0] = PairToCreate(addrs.mUSDC, addrs.mUSDT, 20000 * 10**18, 20000 * 10**18, "mUSDC/mUSDT");
+        pairs[1] = PairToCreate(addrs.mUSDC, addrs.mDAI, 20000 * 10**18, 20000 * 10**18, "mUSDC/mDAI");
 
-        // ETH pairs: ~$40k TVL each (10 ETH + $20k stables)
-        pairs[2] = PairToCreate(addrs.mWETH, addrs.mUSDC, 10 * 10**18, 20000 * 10**18, "mWETH/mUSDC");
-        pairs[3] = PairToCreate(addrs.mWETH, addrs.mUSDT, 10 * 10**18, 20000 * 10**18, "mWETH/mUSDT");
-        pairs[4] = PairToCreate(addrs.mWETH, addrs.mDAI, 10 * 10**18, 20000 * 10**18, "mWETH/mDAI");
+        // ETH pairs: ~$17k TVL each (5 ETH + equivalent stables)
+        // 5 ETH * $3,400 = $17,000 worth per side
+        pairs[2] = PairToCreate(addrs.mWETH, addrs.mUSDC, 5 * 10**18, 17000 * 10**18, "mWETH/mUSDC");
+        pairs[3] = PairToCreate(addrs.mWETH, addrs.mUSDT, 5 * 10**18, 17000 * 10**18, "mWETH/mUSDT");
+        pairs[4] = PairToCreate(addrs.mWETH, addrs.mDAI, 5 * 10**18, 17000 * 10**18, "mWETH/mDAI");
 
-        // WBTC pairs: ~$47.5k TVL (0.5 WBTC + $47.5k stables OR 15 ETH)
-        pairs[5] = PairToCreate(addrs.mWBTC, addrs.mUSDC, 0.5 * 10**18, 47500 * 10**18, "mWBTC/mUSDC");
-        pairs[6] = PairToCreate(addrs.mWBTC, addrs.mWETH, 0.5 * 10**18, 15 * 10**18, "mWBTC/mWETH");
+        // WBTC pairs: ~$19k TVL (0.2 WBTC + equivalent)
+        // 0.2 WBTC * $95,000 = $19,000 worth per side
+        pairs[5] = PairToCreate(addrs.mWBTC, addrs.mUSDC, 0.2 * 10**18, 19000 * 10**18, "mWBTC/mUSDC");
+        pairs[6] = PairToCreate(addrs.mWBTC, addrs.mWETH, 0.2 * 10**18, 5.6 * 10**18, "mWBTC/mWETH");
 
-        // LINK pairs: ~$20k TVL
-        pairs[7] = PairToCreate(addrs.mLINK, addrs.mUSDC, 1000 * 10**18, 10000 * 10**18, "mLINK/mUSDC");
-        pairs[8] = PairToCreate(addrs.mLINK, addrs.mWETH, 1000 * 10**18, 3 * 10**18, "mLINK/mWETH");
+        // LINK pairs: ~$10k TVL (500 LINK)
+        // 500 LINK * $20 = $10,000 worth per side
+        pairs[7] = PairToCreate(addrs.mLINK, addrs.mUSDC, 500 * 10**18, 10000 * 10**18, "mLINK/mUSDC");
+        pairs[8] = PairToCreate(addrs.mLINK, addrs.mWETH, 500 * 10**18, 2.94 * 10**18, "mLINK/mWETH");
 
-        // UNI pair: ~$12k TVL
-        pairs[9] = PairToCreate(addrs.mUNI, addrs.mUSDC, 1000 * 10**18, 6000 * 10**18, "mUNI/mUSDC");
+        // UNI pair: ~$6k TVL (500 UNI)
+        // 500 UNI * $12 = $6,000 worth per side
+        pairs[9] = PairToCreate(addrs.mUNI, addrs.mUSDC, 500 * 10**18, 6000 * 10**18, "mUNI/mUSDC");
 
         vm.startBroadcast();
         

@@ -6,6 +6,7 @@ import { ethers } from 'ethers';
 import { Token, getAllTokens } from '../config/tokens';
 import { formatNumber, formatPercent } from '../utils/formatNumber';
 import LPTokenIcon from './LPTokenIcon';
+import { useNetwork } from '@/hooks/useNetwork';
 
 const FACTORY_ABI = [
   'function getPair(address tokenA, address tokenB) external view returns (address pair)',
@@ -48,18 +49,23 @@ interface LPPositionsProps {
 export default function LPPositions({ signer, contracts }: LPPositionsProps) {
   const [positions, setPositions] = useState<LPPosition[]>([]);
   const [loading, setLoading] = useState(true);
+  const { chainId } = useNetwork();
 
   useEffect(() => {
     loadPositions();
-  }, [signer]);
+  }, [signer, chainId]);
 
   const loadPositions = async () => {
     try {
       setLoading(true);
       const address = await signer.getAddress();
+      console.log('[LPPositions] Loading positions for:', address, 'on chain:', chainId);
+
       const factory = new ethers.Contract(contracts.FACTORY, FACTORY_ABI, signer);
-      const tokens = getAllTokens();
+      const tokens = getAllTokens(chainId);
       const positionsData: LPPosition[] = [];
+
+      console.log('[LPPositions] Checking', tokens.length, 'tokens for LP positions');
 
       // Check all possible pairs
       for (let i = 0; i < tokens.length; i++) {
@@ -77,6 +83,11 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
 
             // Only include positions with balance > 0
             if (lpBalance > BigInt(0)) {
+              console.log(`[LPPositions] Found LP position: ${tokenA.symbol}/${tokenB.symbol}`, {
+                pairAddress,
+                lpBalance: ethers.formatEther(lpBalance),
+              });
+
               const totalSupply = await pair.totalSupply();
               const [reserve0, reserve1] = await pair.getReserves();
               const token0Address = await pair.token0();
@@ -114,9 +125,10 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
         }
       }
 
+      console.log('[LPPositions] Found', positionsData.length, 'LP positions');
       setPositions(positionsData);
     } catch (error) {
-      console.error('Error loading LP positions:', error);
+      console.error('[LPPositions] Error loading LP positions:', error);
     } finally {
       setLoading(false);
     }

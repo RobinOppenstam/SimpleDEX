@@ -1,17 +1,18 @@
 // app/components/SwapInterface.tsx (Updated)
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
 import TokenSelector from './TokenSelector';
 import NotificationModal, { NotificationStatus } from './NotificationModal';
 import PriceDisplay from './PriceDisplay';
 import RouteDisplay from './RouteDisplay';
-import { Token, TOKENS } from '../config/tokens';
+import { Token, getTokensForNetwork } from '../config/tokens';
 import { formatNumber } from '../utils/formatNumber';
 import { usePrices } from '../hooks/usePrices';
 import { findBestRoute, hasDirectPair, Route } from '../utils/routing';
 import { ROUTER_ABI, ERC20_ABI } from '../config/contracts';
+import { useNetwork } from '@/hooks/useNetwork';
 
 interface SwapInterfaceProps {
   signer: ethers.Signer;
@@ -24,10 +25,14 @@ interface SwapInterfaceProps {
 }
 
 export default function SwapInterface({ signer, provider, contracts, onTokenChange }: SwapInterfaceProps) {
+  // Get network-aware tokens
+  const { chainId } = useNetwork();
+  const TOKENS = useMemo(() => getTokensForNetwork(chainId), [chainId]);
+
   // Fetch real-time prices from Chainlink oracles
   const { prices } = usePrices(provider);
-  const [tokenIn, setTokenIn] = useState<Token | null>(TOKENS.WETH);
-  const [tokenOut, setTokenOut] = useState<Token | null>(TOKENS.USDC);
+  const [tokenIn, setTokenIn] = useState<Token | null>(null);
+  const [tokenOut, setTokenOut] = useState<Token | null>(null);
   const [amountIn, setAmountIn] = useState('');
   const [amountOut, setAmountOut] = useState('');
   const [loading, setLoading] = useState(false);
@@ -70,7 +75,33 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
     setNotificationOpen(true);
   };
 
+  // Update tokens when network changes
   useEffect(() => {
+    console.log('[SwapInterface] Network changed, updating tokens:', {
+      chainId,
+      hasTokens: !!TOKENS,
+      wethAddress: TOKENS.mWETH?.address,
+      usdcAddress: TOKENS.mUSDC?.address,
+    });
+    setTokenIn(TOKENS.mWETH);
+    setTokenOut(TOKENS.mUSDC);
+
+    // Reset balances when network changes
+    setBalanceIn('0');
+    setBalanceOut('0');
+  }, [chainId, TOKENS]);
+
+  useEffect(() => {
+    console.log('[SwapInterface] Token or signer changed, checking if should load balances:', {
+      hasTokenIn: !!tokenIn,
+      hasTokenOut: !!tokenOut,
+      tokenInSymbol: tokenIn?.symbol,
+      tokenOutSymbol: tokenOut?.symbol,
+      tokenInAddress: tokenIn?.address,
+      tokenOutAddress: tokenOut?.address,
+      chainId,
+    });
+
     if (tokenIn && tokenOut) {
       loadBalances();
       // Notify parent of token changes
@@ -78,7 +109,7 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
         onTokenChange(tokenIn, tokenOut);
       }
     }
-  }, [tokenIn, tokenOut, signer]);
+  }, [tokenIn, tokenOut, signer, chainId]);
 
   useEffect(() => {
     if (amountIn && parseFloat(amountIn) > 0 && tokenIn && tokenOut) {
@@ -91,21 +122,51 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
   }, [amountIn, tokenIn, tokenOut]);
 
   const loadBalances = async () => {
-    if (!tokenIn || !tokenOut) return;
+    if (!tokenIn || !tokenOut) {
+      console.log('[loadBalances] No tokens selected');
+      return;
+    }
+
+    // Guard: Don't load if addresses are empty
+    if (!tokenIn.address || !tokenOut.address) {
+      console.log('[loadBalances] Skipping - token addresses not configured yet:', {
+        tokenIn: tokenIn.symbol,
+        tokenInAddress: tokenIn.address,
+        tokenOut: tokenOut.symbol,
+        tokenOutAddress: tokenOut.address,
+      });
+      return;
+    }
+
+    console.log('[loadBalances] Loading balances for:', {
+      tokenIn: tokenIn.symbol,
+      tokenInAddress: tokenIn.address,
+      tokenOut: tokenOut.symbol,
+      tokenOutAddress: tokenOut.address,
+    });
 
     try {
       const address = await signer.getAddress();
-      
+      console.log('[loadBalances] User address:', address);
+
       const contractIn = new ethers.Contract(tokenIn.address, ERC20_ABI, signer);
       const contractOut = new ethers.Contract(tokenOut.address, ERC20_ABI, signer);
 
       const balIn = await contractIn.balanceOf(address);
       const balOut = await contractOut.balanceOf(address);
 
-      setBalanceIn(ethers.formatUnits(balIn, tokenIn.decimals));
-      setBalanceOut(ethers.formatUnits(balOut, tokenOut.decimals));
+      const formattedBalIn = ethers.formatUnits(balIn, tokenIn.decimals);
+      const formattedBalOut = ethers.formatUnits(balOut, tokenOut.decimals);
+
+      console.log('[loadBalances] Balances loaded:', {
+        [tokenIn.symbol]: formattedBalIn,
+        [tokenOut.symbol]: formattedBalOut,
+      });
+
+      setBalanceIn(formattedBalIn);
+      setBalanceOut(formattedBalOut);
     } catch (error) {
-      console.error('Error loading balances:', error);
+      console.error('[loadBalances] Error loading balances:', error);
     }
   };
 
@@ -121,7 +182,8 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
         tokenOut.symbol,
         amountInWei,
         provider,
-        contracts.ROUTER
+        contracts.ROUTER,
+        chainId
       );
 
       if (!route) {
@@ -284,9 +346,16 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
         <div className="flex justify-between mb-2">
           <label className="text-sm font-medium text-gray-600">From</label>
           {tokenIn && (
-            <span className="text-sm text-gray-500">
+            <button
+              onClick={loadBalances}
+              className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+              title="Click to refresh balance"
+            >
               Balance: {formatNumber(balanceIn)}
-            </span>
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
           )}
         </div>
         <div className="flex items-center gap-3">
@@ -341,9 +410,16 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
         <div className="flex justify-between mb-2">
           <label className="text-sm font-medium text-gray-600">To</label>
           {tokenOut && (
-            <span className="text-sm text-gray-500">
+            <button
+              onClick={loadBalances}
+              className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+              title="Click to refresh balance"
+            >
               Balance: {formatNumber(balanceOut)}
-            </span>
+              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+            </button>
           )}
         </div>
         <div className="flex items-center gap-3">

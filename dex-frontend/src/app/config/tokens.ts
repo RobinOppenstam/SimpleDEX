@@ -1,4 +1,5 @@
 // app/config/tokens.ts
+import { getNetworkConfig } from './networks';
 
 export interface Token {
   address: string;
@@ -21,84 +22,126 @@ export interface TokenList {
   tokens: Token[];
 }
 
-// Main token registry - Updated with latest Anvil deployment
-export const TOKENS: Record<string, Token> = {
-  mUSDC: {
-    address: '0x86a2ee8faf9a840f7a2c64ca3d51209f9a02081d',
-    symbol: 'mUSDC',
-    name: 'Mock USD Coin',
-    decimals: 18,
-    isStablecoin: true,
-    logoURI: '/USDC.png',
-  },
-  mUSDT: {
-    address: '0xa4899d35897033b927acfcf422bc745916139776',
-    symbol: 'mUSDT',
-    name: 'Mock Tether USD',
-    decimals: 18,
-    isStablecoin: true,
-    logoURI: '/USDT.png',
-  },
-  mDAI: {
-    address: '0xf953b3a269d80e3eb0f2947630da976b896a8c5b',
-    symbol: 'mDAI',
-    name: 'Mock Dai Stablecoin',
-    decimals: 18,
-    isStablecoin: true,
-    logoURI: '/DAI.png',
-  },
-  mWETH: {
-    address: '0xaa292e8611adf267e563f334ee42320ac96d0463',
-    symbol: 'mWETH',
-    name: 'Mock Wrapped Ether',
-    decimals: 18,
-    logoURI: '/WETH.png',
-  },
-  mWBTC: {
-    address: '0x5c74c94173f05da1720953407cbb920f3df9f887',
-    symbol: 'mWBTC',
-    name: 'Mock Wrapped Bitcoin',
-    decimals: 18,
-    logoURI: '/bitcoin.png',
-  },
-  mLINK: {
-    address: '0x720472c8ce72c2a2d711333e064abd3e6bbeadd3',
-    symbol: 'mLINK',
-    name: 'Mock Chainlink',
-    decimals: 18,
-    logoURI: '/LINK.png',
-  },
-  mUNI: {
-    address: '0xe8d2a1e88c91dcd5433208d4152cc4f399a7e91d',
-    symbol: 'mUNI',
-    name: 'Mock Uniswap',
-    decimals: 18,
-    logoURI: '/UNI.png',
-  },
-};
+// Helper to create token registry from network token addresses
+function createTokenRegistry(tokens: {
+  USDC: string;
+  USDT: string;
+  DAI: string;
+  WETH: string;
+  WBTC: string;
+  LINK: string;
+  UNI: string;
+}): Record<string, Token> {
+  return {
+    mUSDC: {
+      address: tokens.USDC,
+      symbol: 'mUSDC',
+      name: 'Mock USD Coin',
+      decimals: 18,
+      isStablecoin: true,
+      logoURI: '/USDC.png',
+    },
+    mUSDT: {
+      address: tokens.USDT,
+      symbol: 'mUSDT',
+      name: 'Mock Tether USD',
+      decimals: 18,
+      isStablecoin: true,
+      logoURI: '/USDT.png',
+    },
+    mDAI: {
+      address: tokens.DAI,
+      symbol: 'mDAI',
+      name: 'Mock Dai Stablecoin',
+      decimals: 18,
+      isStablecoin: true,
+      logoURI: '/DAI.png',
+    },
+    mWETH: {
+      address: tokens.WETH,
+      symbol: 'mWETH',
+      name: 'Mock Wrapped Ether',
+      decimals: 18,
+      logoURI: '/WETH.png',
+    },
+    mWBTC: {
+      address: tokens.WBTC,
+      symbol: 'mWBTC',
+      name: 'Mock Wrapped Bitcoin',
+      decimals: 18,
+      logoURI: '/bitcoin.png',
+    },
+    mLINK: {
+      address: tokens.LINK,
+      symbol: 'mLINK',
+      name: 'Mock Chainlink',
+      decimals: 18,
+      logoURI: '/LINK.png',
+    },
+    mUNI: {
+      address: tokens.UNI,
+      symbol: 'mUNI',
+      name: 'Mock Uniswap',
+      decimals: 18,
+      logoURI: '/UNI.png',
+    },
+  };
+}
 
-// Helper functions
-export const getTokenByAddress = (address: string): Token | undefined => {
-  return Object.values(TOKENS).find(
+// Get tokens for a specific network
+export function getTokensForNetwork(chainId: number): Record<string, Token> {
+  const network = getNetworkConfig(chainId);
+  if (!network || !network.tokens) {
+    // Fallback to empty addresses if network not found
+    return createTokenRegistry({
+      USDC: '',
+      USDT: '',
+      DAI: '',
+      WETH: '',
+      WBTC: '',
+      LINK: '',
+      UNI: '',
+    });
+  }
+  return createTokenRegistry(network.tokens);
+}
+
+// Main token registry - defaults to Anvil for backwards compatibility
+export const TOKENS: Record<string, Token> = getTokensForNetwork(31337);
+
+// Helper functions - support both network-aware and legacy usage
+export const getTokenByAddress = (
+  address: string,
+  chainId?: number
+): Token | undefined => {
+  const tokens = chainId ? getTokensForNetwork(chainId) : TOKENS;
+  return Object.values(tokens).find(
     token => token.address.toLowerCase() === address.toLowerCase()
   );
 };
 
-export const getTokenBySymbol = (symbol: string): Token | undefined => {
-  return TOKENS[symbol];
+export const getTokenBySymbol = (
+  symbol: string,
+  chainId?: number
+): Token | undefined => {
+  const tokens = chainId ? getTokensForNetwork(chainId) : TOKENS;
+  return tokens[symbol];
 };
 
-export const getAllTokens = (): Token[] => {
-  return Object.values(TOKENS);
+export const getAllTokens = (chainId?: number): Token[] => {
+  const tokens = chainId ? getTokensForNetwork(chainId) : TOKENS;
+  return Object.values(tokens);
 };
 
-export const getStablecoins = (): Token[] => {
-  return Object.values(TOKENS).filter(token => token.isStablecoin);
+export const getStablecoins = (chainId?: number): Token[] => {
+  const tokens = chainId ? getTokensForNetwork(chainId) : TOKENS;
+  return Object.values(tokens).filter(token => token.isStablecoin);
 };
 
-export const searchTokens = (query: string): Token[] => {
+export const searchTokens = (query: string, chainId?: number): Token[] => {
+  const tokens = chainId ? getTokensForNetwork(chainId) : TOKENS;
   const lowerQuery = query.toLowerCase();
-  return Object.values(TOKENS).filter(
+  return Object.values(tokens).filter(
     token =>
       token.symbol.toLowerCase().includes(lowerQuery) ||
       token.name.toLowerCase().includes(lowerQuery) ||

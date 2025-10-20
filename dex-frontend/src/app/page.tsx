@@ -14,20 +14,17 @@ import SwapHistory from '@/app/components/SwapHistory';
 import Faucet from '@/app/components/Faucet';
 import Analytics from '@/app/components/Analytics';
 import Market from '@/app/components/Market';
+import { NetworkSwitcher } from '@/components/NetworkSwitcher';
+import { useNetwork } from '@/hooks/useNetwork';
 // import { Token } from '@/app/config/tokens';
-
-// Replace with your deployed contract addresses
-const CONTRACTS = {
-  ROUTER: '0x7a9ec1d04904907de0ed7b6839ccdd59c3716ac9',
-  FACTORY: '0x4c2f7092c2ae51d986befee378e50bd4db99c901',
-  TOKEN_A: '0x49fd2be640db2910c2fab69bb8531ab6e76127ff',
-  TOKEN_B: '0x4631bcabd6df18d94796344963cb60d44a4136b6',
-};
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'positions' | 'history' | 'faucet' | 'analytics' | 'market'>('swap');
   // const [selectedTokenA, setSelectedTokenA] = useState<Token | null>(null);
   // const [selectedTokenB, setSelectedTokenB] = useState<Token | null>(null);
+
+  // Get network configuration
+  const { network } = useNetwork();
 
   // Wagmi hooks
   const { address, isConnected } = useAccount();
@@ -41,17 +38,26 @@ export default function Home() {
   // Fallback to JSON-RPC provider if wagmi provider is not available
   const provider = wagmiProvider || new ethers.JsonRpcProvider('http://localhost:8545');
 
+  // Get network-aware contract addresses
+  const CONTRACTS = {
+    ROUTER: network?.contracts.router || '',
+    FACTORY: network?.contracts.factory || '',
+  };
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
       <div className="container mx-auto px-4 py-8">
         {/* Header */}
-        <header className="mb-8">
+        <header className="mb-8 space-y-4">
           <div className="flex items-center relative">
             <h1 className="text-4xl font-bold text-gray-800 w-full text-center">Simple DEX</h1>
             <div className="absolute right-0">
               <ConnectButton />
             </div>
           </div>
+
+          {/* Network Switcher */}
+          {isConnected && <NetworkSwitcher />}
         </header>
 
         {/* Main Interface - Centered */}
@@ -132,7 +138,7 @@ export default function Home() {
               </div>
 
               {/* Content */}
-              {activeTab === 'swap' && signer && provider && (
+              {activeTab === 'swap' && signer && provider && CONTRACTS.ROUTER && (
                 <SwapInterface
                   signer={signer}
                   provider={provider}
@@ -142,7 +148,13 @@ export default function Home() {
                   }}
                 />
               )}
-              {activeTab === 'liquidity' && signer && (
+              {activeTab === 'swap' && signer && provider && !CONTRACTS.ROUTER && (
+                <div className="text-center p-8 text-gray-500">
+                  <p>Network configuration not loaded. Please ensure you're connected to a supported network (Anvil or Sepolia).</p>
+                  <p className="mt-2 text-sm">Connected chain ID: {network?.chainId || 'unknown'}</p>
+                </div>
+              )}
+              {activeTab === 'liquidity' && signer && CONTRACTS.ROUTER && (
                 <LiquidityInterface
                   signer={signer}
                   contracts={CONTRACTS}

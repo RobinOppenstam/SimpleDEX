@@ -8,9 +8,16 @@ import "../src/DEXRouter.sol";
 
 /**
  * @title TestConnection
- * @notice Script to verify contract deployment and balances
+ * @notice Script to verify contract deployment and balances (read-only)
+ *
+ * ⚠️  NOTE: This script has HARDCODED addresses for LOCAL Anvil only
+ * - For testnet: Update addresses below before running
+ * - This is a READ-ONLY script (no state changes)
+ *
+ * @dev Usage: forge script script/TestConnection.s.sol:TestConnection --rpc-url <RPC_URL>
  */
 contract TestConnection is Script {
+    // ⚠️ HARDCODED ADDRESSES - Update for testnet deployment
     // Contract addresses
     address constant FACTORY = 0x5FbDB2315678afecb367f032d93F642f64180aa3;
     address constant ROUTER = 0xe7f1725E7734CE288F8367e1Bb143E90bb3F0512;

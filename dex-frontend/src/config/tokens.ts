@@ -9,53 +9,53 @@ export interface Token {
 // Note: This file is deprecated - use src/app/config/tokens.ts instead
 export const TOKENS: Token[] = [
   {
-    address: '0x49fd2be640db2910c2fab69bb8531ab6e76127ff', symbol: 'TKA',
+    address: '0x9fe46736679d2d9a65f0992f2272de9f3c7fa6e0', symbol: 'TKA',
     name: 'Token A',
     decimals: 18,
   },
   {
-    address: '0x4631bcabd6df18d94796344963cb60d44a4136b6', symbol: 'TKB',
+    address: '0xcf7ed3acca5a467e9e704c703e8d87f634fb0fc9', symbol: 'TKB',
     name: 'Token B',
     decimals: 18,
   },
   {
-    address: '0x86a2ee8faf9a840f7a2c64ca3d51209f9a02081d', symbol: 'USDC',
+    address: '0xdc64a140aa3e981100a9beca4e685f962f0cf6c9', symbol: 'USDC',
     name: 'USD Coin',
     decimals: 18,
   },
   {
-    address: '0xa4899d35897033b927acfcf422bc745916139776', symbol: 'USDT',
+    address: '0x5fc8d32690cc91d4c39d9d3abcbd16989f875707', symbol: 'USDT',
     name: 'Tether USD',
     decimals: 18,
   },
   {
-    address: '0xf953b3a269d80e3eb0f2947630da976b896a8c5b', symbol: 'DAI',
+    address: '0x0165878a594ca255338adfa4d48449f69242eb8f', symbol: 'DAI',
     name: 'Dai Stablecoin',
     decimals: 18,
   },
   {
-    address: '0xaa292e8611adf267e563f334ee42320ac96d0463', symbol: 'WETH',
+    address: '0xa513e6e4b8f2a923d98304ec87f64353c4d5c853', symbol: 'WETH',
     name: 'Wrapped Ether',
     decimals: 18,
   },
   {
-    address: '0x5c74c94173f05da1720953407cbb920f3df9f887', symbol: 'WBTC',
+    address: '0x2279b7a0a67db372996a5fab50d91eaa73d2ebe6', symbol: 'WBTC',
     name: 'Wrapped Bitcoin',
     decimals: 18,
   },
   {
-    address: '0x720472c8ce72c2a2d711333e064abd3e6bbeadd3', symbol: 'LINK',
+    address: '0x8a791620dd6260079bf849dc5567adc3f2fdc318', symbol: 'LINK',
     name: 'Chainlink',
     decimals: 18,
   },
   {
-    address: '0xe8d2a1e88c91dcd5433208d4152cc4f399a7e91d', symbol: 'UNI',
+    address: '0x610178da211fef7d417bc0e6fed39f05609ad788', symbol: 'UNI',
     name: 'Uniswap',
     decimals: 18,
   },
 ];
 
 export const CONTRACTS = {
-  ROUTER: '0x7a9ec1d04904907de0ed7b6839ccdd59c3716ac9',
-  FACTORY: '0x4c2f7092c2ae51d986befee378e50bd4db99c901',
+  ROUTER: '0xe7f1725e7734ce288f8367e1bb143e90bb3f0512',
+  FACTORY: '0x5fbdb2315678afecb367f032d93f642f64180aa3',
 };

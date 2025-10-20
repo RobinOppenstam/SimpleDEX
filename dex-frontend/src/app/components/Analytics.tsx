@@ -5,6 +5,7 @@ import { useState, useEffect, useRef } from 'react';
 import { ethers } from 'ethers';
 import { getTokenByAddress } from '../config/tokens';
 import { usePrices } from '../hooks/usePrices';
+import { useNetwork } from '@/hooks/useNetwork';
 import LPTokenIcon from './LPTokenIcon';
 
 const FACTORY_ABI = [
@@ -49,6 +50,7 @@ interface PairStats {
 }
 
 export default function Analytics({ provider, contracts }: AnalyticsProps) {
+  const { chainId } = useNetwork();
   const [loading, setLoading] = useState(true);
   const [totalSwaps, setTotalSwaps] = useState(0);
   const [totalLPPositions, setTotalLPPositions] = useState(0);
@@ -103,11 +105,13 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
           const token0Address = await pair.token0();
           const token1Address = await pair.token1();
 
-          const token0 = getTokenByAddress(token0Address);
-          const token1 = getTokenByAddress(token1Address);
+          const token0 = getTokenByAddress(token0Address, chainId);
+          const token1 = getTokenByAddress(token1Address, chainId);
 
           if (!token0 || !token1) {
-            console.log(`Skipping pair ${pairAddress} - tokens not in registry`);
+            console.log(`Skipping pair ${pairAddress} - tokens not in registry (chain: ${chainId})`);
+            console.log(`  token0: ${token0Address} -> ${token0?.symbol || 'NOT FOUND'}`);
+            console.log(`  token1: ${token1Address} -> ${token1?.symbol || 'NOT FOUND'}`);
             continue;
           }
 

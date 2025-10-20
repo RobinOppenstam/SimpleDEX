@@ -24,9 +24,32 @@ export const anvil = defineChain({
   testnet: true,
 });
 
+// Define Sepolia with custom Alchemy RPC
+export const sepolia = defineChain({
+  id: 11155111,
+  name: 'Sepolia',
+  nativeCurrency: {
+    decimals: 18,
+    name: 'Sepolia Ether',
+    symbol: 'ETH',
+  },
+  rpcUrls: {
+    default: {
+      http: [process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || 'https://eth-sepolia.g.alchemy.com/v2/demo'],
+    },
+    public: {
+      http: [process.env.NEXT_PUBLIC_SEPOLIA_RPC_URL || 'https://eth-sepolia.g.alchemy.com/v2/demo'],
+    },
+  },
+  blockExplorers: {
+    default: { name: 'Etherscan', url: 'https://sepolia.etherscan.io' },
+  },
+  testnet: true,
+});
+
 export const config = getDefaultConfig({
   appName: 'SimpleDEX',
   projectId: 'YOUR_PROJECT_ID', // Get from https://cloud.walletconnect.com
-  chains: [anvil],
+  chains: [anvil, sepolia], // Add Sepolia support
   ssr: true, // For Next.js
 });

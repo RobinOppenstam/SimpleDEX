@@ -2,15 +2,18 @@
 'use client';
 
 import { ethers } from 'ethers';
-import { TOKENS } from '../config/tokens';
+import { getTokensForNetwork } from '../config/tokens';
 import { usePrices } from '../hooks/usePrices';
 import { formatNumber } from '../utils/formatNumber';
+import { useNetwork } from '@/hooks/useNetwork';
 
 interface MarketProps {
   provider: ethers.Provider;
 }
 
 export default function Market({ provider }: MarketProps) {
+  const { chainId } = useNetwork();
+  const TOKENS = getTokensForNetwork(chainId);
   const { prices, loading, lastUpdate, refreshPrices } = usePrices(provider);
 
   const formatUSD = (value: number): string => {

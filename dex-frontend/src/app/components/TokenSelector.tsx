@@ -5,6 +5,7 @@ import { useState, useEffect } from 'react';
 import { Token, getAllTokens, searchTokens, COMMON_BASES } from '../config/tokens';
 import { ethers } from 'ethers';
 import { formatNumber } from '../utils/formatNumber';
+import { useNetwork } from '@/hooks/useNetwork';
 
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)'];
 
@@ -19,10 +20,11 @@ export default function TokenSelector({ selectedToken, onSelect, excludeToken, s
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [balances, setBalances] = useState<Record<string, string>>({});
+  const { chainId } = useNetwork();
 
   const tokens = searchQuery
-    ? searchTokens(searchQuery)
-    : getAllTokens();
+    ? searchTokens(searchQuery, chainId)
+    : getAllTokens(chainId);
 
   const filteredTokens = tokens.filter(
     token => token.address !== excludeToken?.address
@@ -46,18 +48,26 @@ export default function TokenSelector({ selectedToken, onSelect, excludeToken, s
       const newBalances: Record<string, string> = {};
 
       for (const token of filteredTokens) {
+        // Skip tokens with empty addresses
+        if (!token.address) {
+          console.log(`[TokenSelector] Skipping token ${token.symbol} - empty address`);
+          newBalances[token.address] = '0';
+          continue;
+        }
+
         try {
           const contract = new ethers.Contract(token.address, ERC20_ABI, signer);
           const balance = await contract.balanceOf(address);
           newBalances[token.address] = ethers.formatUnits(balance, token.decimals);
         } catch (error) {
+          console.error(`[TokenSelector] Error loading balance for ${token.symbol}:`, error);
           newBalances[token.address] = '0';
         }
       }
 
       setBalances(newBalances);
     } catch (error) {
-      console.error('Error loading balances:', error);
+      console.error('[TokenSelector] Error loading balances:', error);
     }
   };
 

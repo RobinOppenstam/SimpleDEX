@@ -4,7 +4,8 @@
 import React from 'react';
 import Image from 'next/image';
 import { Route } from '../utils/routing';
-import { TOKENS } from '../config/tokens';
+import { getTokensForNetwork } from '../config/tokens';
+import { useNetwork } from '@/hooks/useNetwork';
 
 interface RouteDisplayProps {
   route: Route | null;
@@ -12,6 +13,9 @@ interface RouteDisplayProps {
 }
 
 export default function RouteDisplay({ route, isDirect }: RouteDisplayProps) {
+  const { chainId } = useNetwork();
+  const TOKENS = getTokensForNetwork(chainId);
+
   if (!route) return null;
 
   const isMultiHop = route.path.length > 2;

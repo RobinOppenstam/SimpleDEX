@@ -1,12 +1,13 @@
 // app/components/LiquidityInterface.tsx
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
 import TokenSelector from './TokenSelector';
 import NotificationModal, { NotificationStatus } from './NotificationModal';
-import { Token, TOKENS } from '../config/tokens';
+import { Token, getTokensForNetwork } from '../config/tokens';
 import { formatNumber } from '../utils/formatNumber';
+import { useNetwork } from '@/hooks/useNetwork';
 
 const ROUTER_ABI = [
   'function addLiquidity(address tokenA, address tokenB, uint amountADesired, uint amountBDesired, uint amountAMin, uint amountBMin, address to, uint deadline) external returns (uint amountA, uint amountB, uint liquidity)',
@@ -41,8 +42,12 @@ interface LiquidityInterfaceProps {
 }
 
 export default function LiquidityInterface({ signer, contracts, onTokenChange }: LiquidityInterfaceProps) {
-  const [tokenA, setTokenA] = useState<Token | null>(TOKENS.WETH);
-  const [tokenB, setTokenB] = useState<Token | null>(TOKENS.USDC);
+  // Get network-aware tokens
+  const { chainId } = useNetwork();
+  const TOKENS = useMemo(() => getTokensForNetwork(chainId), [chainId]);
+
+  const [tokenA, setTokenA] = useState<Token | null>(null);
+  const [tokenB, setTokenB] = useState<Token | null>(null);
   const [amountA, setAmountA] = useState('');
   const [amountB, setAmountB] = useState('');
   const [loading, setLoading] = useState(false);
@@ -89,22 +94,72 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
     setNotificationOpen(true);
   };
 
+  // Update tokens when network changes
   useEffect(() => {
-    if (tokenA && tokenB) {
+    console.log('[LiquidityInterface] Network changed, updating tokens:', {
+      chainId,
+      wethAddress: TOKENS.mWETH?.address,
+      usdcAddress: TOKENS.mUSDC?.address,
+    });
+    setTokenA(TOKENS.mWETH);
+    setTokenB(TOKENS.mUSDC);
+
+    // Reset balances when network changes
+    setBalanceA('0');
+    setBalanceB('0');
+    setLpBalance('0');
+  }, [chainId, TOKENS]);
+
+  useEffect(() => {
+    console.log('[LiquidityInterface] Token or signer changed:', {
+      hasTokenA: !!tokenA,
+      hasTokenB: !!tokenB,
+      tokenASymbol: tokenA?.symbol,
+      tokenBSymbol: tokenB?.symbol,
+      tokenAAddress: tokenA?.address,
+      tokenBAddress: tokenB?.address,
+      chainId,
+    });
+
+    if (tokenA && tokenB && tokenA.address && tokenB.address) {
       loadBalances();
       loadReserves();
       // Notify parent of token changes
       if (onTokenChange) {
         onTokenChange(tokenA, tokenB);
       }
+    } else {
+      console.log('[LiquidityInterface] Skipping load - tokens not ready');
     }
-  }, [signer, tokenA, tokenB]);
+  }, [signer, tokenA, tokenB, chainId]);
 
   const loadBalances = async () => {
-    if (!tokenA || !tokenB) return;
+    if (!tokenA || !tokenB) {
+      console.log('[LiquidityInterface.loadBalances] No tokens selected');
+      return;
+    }
+
+    if (!tokenA.address || !tokenB.address) {
+      console.log('[LiquidityInterface.loadBalances] Tokens have empty addresses:', {
+        tokenA: tokenA.symbol,
+        tokenAAddress: tokenA.address,
+        tokenB: tokenB.symbol,
+        tokenBAddress: tokenB.address,
+      });
+      return;
+    }
+
+    console.log('[LiquidityInterface.loadBalances] Loading balances for:', {
+      tokenA: tokenA.symbol,
+      tokenAAddress: tokenA.address,
+      tokenB: tokenB.symbol,
+      tokenBAddress: tokenB.address,
+    });
 
     try {
       const address = await signer.getAddress();
+      console.log('[LiquidityInterface.loadBalances] User address:', address);
+
       const tokenAContract = new ethers.Contract(tokenA.address, ERC20_ABI, signer);
       const tokenBContract = new ethers.Contract(tokenB.address, ERC20_ABI, signer);
 
@@ -118,15 +173,26 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
       const factory = new ethers.Contract(contracts.FACTORY, FACTORY_ABI, signer);
       const pairAddress = await factory.getPair(tokenA.address, tokenB.address);
 
+      console.log('[LiquidityInterface.loadBalances] Pair address:', pairAddress);
+
       if (pairAddress !== ethers.ZeroAddress) {
         const pair = new ethers.Contract(pairAddress, ERC20_ABI, signer);
         const lpBal = await pair.balanceOf(address);
-        setLpBalance(ethers.formatEther(lpBal));
+        const formattedLpBalance = ethers.formatEther(lpBal);
+        console.log('[LiquidityInterface.loadBalances] LP balance:', formattedLpBalance);
+        setLpBalance(formattedLpBalance);
       } else {
+        console.log('[LiquidityInterface.loadBalances] No pair exists');
         setLpBalance('0');
       }
+
+      console.log('[LiquidityInterface.loadBalances] Balances loaded:', {
+        [tokenA.symbol]: ethers.formatUnits(balA, tokenA.decimals),
+        [tokenB.symbol]: ethers.formatUnits(balB, tokenB.decimals),
+        LP: ethers.formatEther(await (pairAddress !== ethers.ZeroAddress ? (new ethers.Contract(pairAddress, ERC20_ABI, signer)).balanceOf(address) : Promise.resolve(0n))),
+      });
     } catch (error) {
-      console.error('Error loading balances:', error);
+      console.error('[LiquidityInterface.loadBalances] Error loading balances:', error);
     }
   };
 
@@ -507,7 +573,16 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
           <div className="bg-gray-50 rounded-xl p-4">
             <div className="flex justify-between mb-2">
               <label className="text-sm font-medium text-gray-600">LP Tokens</label>
-              <span className="text-sm text-gray-500">Balance: {formatNumber(lpBalance)}</span>
+              <button
+                onClick={loadBalances}
+                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                title="Click to refresh balance"
+              >
+                Balance: {formatNumber(lpBalance)}
+                <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </button>
             </div>
             <div className="flex items-center gap-3">
               <input

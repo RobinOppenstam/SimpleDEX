@@ -7,10 +7,21 @@ import "../src/MockERC20.sol";
 /**
  * @title MintTokensToUser
  * @notice Script to mint tokens to a specific user address for testing
- * @dev Run this with: forge script script/MintTokensToUser.s.sol:MintTokensToUser --rpc-url http://localhost:8545 --private-key <PRIVATE_KEY> --broadcast
+ *
+ * ⚠️  SECURITY WARNING:
+ * - This script requires OWNER privileges (only token owner can mint)
+ * - Only use for testing/development purposes
+ * - For testnet: Update hardcoded addresses below
+ *
+ * @dev Usage:
+ *   forge script script/MintTokensToUser.s.sol:MintTokensToUser \
+ *     --rpc-url <RPC_URL> \
+ *     --private-key <OWNER_PRIVATE_KEY> \
+ *     --broadcast
  */
 contract MintTokensToUser is Script {
-    // Token addresses from deployment
+    // ⚠️ HARDCODED ADDRESSES - These are for LOCAL Anvil only!
+    // TODO: For testnet, either update these or use vm.envOr() to read from .env
     address constant USDC = 0xDc64a140Aa3E981100a9becA4E685f962f0cF6C9;
     address constant USDT = 0x5FC8d32690cc91D4c39d9d3abcBD16989F875707;
     address constant DAI = 0x0165878A594ca255338adfa4d48449f69242Eb8F;

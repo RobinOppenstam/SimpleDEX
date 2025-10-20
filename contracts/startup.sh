@@ -10,9 +10,14 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
-echo -e "${BLUE}================================================${NC}"
-echo -e "${BLUE}    SimpleDEX Startup Script${NC}"
-echo -e "${BLUE}================================================${NC}"
+echo -e "${BLUE}╔════════════════════════════════════════════════════╗${NC}"
+echo -e "${BLUE}║                                                    ║${NC}"
+echo -e "${BLUE}║         SimpleDEX Anvil Local Deployment          ║${NC}"
+echo -e "${BLUE}║           (Static Prices for Testing)             ║${NC}"
+echo -e "${BLUE}║                                                    ║${NC}"
+echo -e "${BLUE}╚════════════════════════════════════════════════════╝${NC}"
+echo ""
+echo -e "${YELLOW}ℹ️  For Sepolia testnet with real prices, use: ./startup-sepolia.sh${NC}"
 echo ""
 
 # Check if Anvil is running
@@ -129,13 +134,25 @@ echo -e "${BLUE}================================================${NC}"
 echo -e "${GREEN}    SimpleDEX Setup Complete! 🚀${NC}"
 echo -e "${BLUE}================================================${NC}"
 echo ""
+
+# Auto-update frontend configuration
+echo -e "${BLUE}Updating frontend configuration...${NC}"
+if [ -f "update-frontend-config.py" ]; then
+    python3 update-frontend-config.py anvil
+    echo ""
+else
+    echo -e "${YELLOW}⚠ update-frontend-config.py not found. Skipping frontend update.${NC}"
+    echo ""
+fi
+
 echo -e "${YELLOW}Next steps:${NC}"
-echo -e "  1. Hard refresh your browser (Ctrl+Shift+R)"
+echo -e "  1. Connect MetaMask to Localhost 8545 (Anvil)"
 echo -e "  2. Start your frontend: ${GREEN}cd ../dex-frontend && npm run dev${NC}"
+echo -e "  3. Hard refresh your browser (Ctrl+Shift+R)"
 echo ""
 echo -e "${YELLOW}All addresses have been automatically updated in:${NC}"
 echo -e "  - contracts/.env"
-echo -e "  - dex-frontend/src/app/config/tokens.ts"
-echo -e "  - dex-frontend/src/app/config/priceFeeds.ts"
-echo -e "  - dex-frontend/src/app/page.tsx"
+echo -e "  - dex-frontend/.env.local (Anvil section)"
+echo ""
+echo -e "${YELLOW}ℹ For Sepolia testnet deployment, use: ${GREEN}./startup-sepolia.sh${NC}"
 echo ""
