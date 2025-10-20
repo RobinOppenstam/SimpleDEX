@@ -7,6 +7,7 @@ import { getTokenByAddress } from '../config/tokens';
 import { usePrices } from '../hooks/usePrices';
 import { useNetwork } from '@/hooks/useNetwork';
 import LPTokenIcon from './LPTokenIcon';
+import { fetchAllLogsFromEtherscan } from '../utils/etherscan';
 
 const FACTORY_ABI = [
   'function allPairs(uint) external view returns (address pair)',
@@ -73,23 +74,41 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
     return tokenAmount * price;
   };
 
-  // Count unique LP holders for a pair
+  // Count unique LP holders for a pair using Etherscan API
   const countLPHolders = async (pairAddress: string): Promise<number> => {
     try {
       const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
 
-      // Get all Transfer events to find unique holders
-      const transferFilter = pair.filters.Transfer();
-      const transferEvents = await pair.queryFilter(transferFilter, 0);
+      // Get Transfer event signature
+      const transferEventSignature = ethers.id('Transfer(address,address,uint256)');
 
-      // Collect unique addresses
+      // Fetch all Transfer events from Etherscan
+      const transferEvents = await fetchAllLogsFromEtherscan(
+        chainId,
+        pairAddress,
+        [transferEventSignature],
+        0,
+        'latest',
+        process.env.NEXT_PUBLIC_ETHERSCAN_API_KEY
+      );
+
+      // Parse events and collect unique addresses
       const uniqueAddresses = new Set<string>();
-      for (const event of transferEvents) {
-        if ('args' in event && event.args) {
-          const to = event.args.to;
-          if (to && to !== ethers.ZeroAddress) {
-            uniqueAddresses.add(to.toLowerCase());
+      for (const log of transferEvents) {
+        try {
+          const parsed = pair.interface.parseLog({
+            topics: log.topics as string[],
+            data: log.data,
+          });
+
+          if (parsed && parsed.args) {
+            const to = parsed.args.to;
+            if (to && to !== ethers.ZeroAddress) {
+              uniqueAddresses.add(to.toLowerCase());
+            }
           }
+        } catch (error) {
+          continue;
         }
       }
 
@@ -113,7 +132,7 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
     }
   };
 
-  // Count swaps and calculate volume for a pair
+  // Count swaps and calculate volume for a pair using Etherscan API
   const countSwapsAndVolume = async (
     pairAddress: string,
     token0Symbol: string,
@@ -122,28 +141,46 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
     try {
       const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
 
-      // Get all Swap events
-      const swapFilter = pair.filters.Swap();
-      const swapEvents = await pair.queryFilter(swapFilter, 0);
+      // Get Swap event signature
+      const swapEventSignature = ethers.id('Swap(address,uint256,uint256,uint256,uint256,address)');
+
+      // Fetch all Swap events from Etherscan
+      const swapEvents = await fetchAllLogsFromEtherscan(
+        chainId,
+        pairAddress,
+        [swapEventSignature],
+        0,
+        'latest',
+        process.env.NEXT_PUBLIC_ETHERSCAN_API_KEY
+      );
 
       let volumeUSD = 0;
-      for (const event of swapEvents) {
-        if ('args' in event && event.args) {
-          const { amount0In, amount1In, amount0Out, amount1Out } = event.args;
+      for (const log of swapEvents) {
+        try {
+          const parsed = pair.interface.parseLog({
+            topics: log.topics as string[],
+            data: log.data,
+          });
 
-          // Calculate volume for each direction
-          if (amount0In > BigInt(0)) {
-            volumeUSD += calculateUSDValue(token0Symbol, amount0In);
+          if (parsed && parsed.args) {
+            const { amount0In, amount1In, amount0Out, amount1Out } = parsed.args;
+
+            // Calculate volume for each direction
+            if (amount0In > BigInt(0)) {
+              volumeUSD += calculateUSDValue(token0Symbol, amount0In);
+            }
+            if (amount1In > BigInt(0)) {
+              volumeUSD += calculateUSDValue(token1Symbol, amount1In);
+            }
+            if (amount0Out > BigInt(0)) {
+              volumeUSD += calculateUSDValue(token0Symbol, amount0Out);
+            }
+            if (amount1Out > BigInt(0)) {
+              volumeUSD += calculateUSDValue(token1Symbol, amount1Out);
+            }
           }
-          if (amount1In > BigInt(0)) {
-            volumeUSD += calculateUSDValue(token1Symbol, amount1In);
-          }
-          if (amount0Out > BigInt(0)) {
-            volumeUSD += calculateUSDValue(token0Symbol, amount0Out);
-          }
-          if (amount1Out > BigInt(0)) {
-            volumeUSD += calculateUSDValue(token1Symbol, amount1Out);
-          }
+        } catch (error) {
+          continue;
         }
       }
 
