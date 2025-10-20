@@ -7,6 +7,8 @@ import { getTokenByAddress } from '../config/tokens';
 import { usePrices } from '../hooks/usePrices';
 import { useNetwork } from '@/hooks/useNetwork';
 import LPTokenIcon from './LPTokenIcon';
+import { loadCache, needsUpdate, formatCacheAge, type AnalyticsCache } from '../utils/analytics-cache';
+import { indexAnalytics, quickSync, type IndexProgress } from '../utils/analytics-indexer';
 
 const FACTORY_ABI = [
   'function allPairs(uint) external view returns (address pair)',
@@ -14,14 +16,8 @@ const FACTORY_ABI = [
 ];
 
 const PAIR_ABI = [
-  'event Swap(address indexed sender, uint256 amount0In, uint256 amount1In, uint256 amount0Out, uint256 amount1Out, address indexed to)',
-  'event Mint(address indexed sender, uint256 amount0, uint256 amount1)',
-  'event Burn(address indexed sender, uint256 amount0, uint256 amount1, address indexed to)',
-  'event Transfer(address indexed from, address indexed to, uint256 value)',
   'function token0() external view returns (address)',
   'function token1() external view returns (address)',
-  'function balanceOf(address owner) view returns (uint256)',
-  'function totalSupply() view returns (uint256)',
   'function getReserves() external view returns (uint112 reserve0, uint112 reserve1, uint32 blockTimestampLast)',
 ];
 
@@ -52,12 +48,16 @@ interface PairStats {
 export default function Analytics({ provider, contracts }: AnalyticsProps) {
   const { chainId } = useNetwork();
   const [loading, setLoading] = useState(true);
+  const [indexing, setIndexing] = useState(false);
+  const [indexProgress, setIndexProgress] = useState<IndexProgress | null>(null);
   const [totalSwaps, setTotalSwaps] = useState(0);
   const [totalLPPositions, setTotalLPPositions] = useState(0);
   const [totalVolumeUSD, setTotalVolumeUSD] = useState(0);
   const [totalTVL, setTotalTVL] = useState(0);
   const [pairStats, setPairStats] = useState<PairStats[]>([]);
+  const [cacheAge, setCacheAge] = useState<string>('');
   const hasLoadedRef = useRef(false);
+  const cacheRef = useRef<AnalyticsCache | null>(null);
 
   // Fetch real-time prices from Chainlink oracles
   const { prices } = usePrices(provider);
@@ -68,7 +68,7 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
       hasLoadedRef.current = true;
       loadAnalytics();
     }
-  }, [prices]);
+  }, [prices, chainId]);
 
   // Helper function to calculate USD value of token amounts using Chainlink prices
   const calculateUSDValue = (tokenSymbol: string, amount: bigint): number => {
@@ -80,188 +80,245 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
     return tokenAmount * price;
   };
 
+  // Load analytics from cache or index from blockchain
   const loadAnalytics = async () => {
     try {
       setLoading(true);
 
+      // Step 1: Try to load from cache
+      const cache = loadCache(chainId);
+
+      if (cache) {
+        console.log('[Analytics] Loading from cache');
+        cacheRef.current = cache;
+        await displayCachedData(cache);
+
+        // Check if cache needs update
+        if (needsUpdate(cache)) {
+          console.log('[Analytics] Cache is stale, syncing...');
+          await syncCache(cache);
+        }
+      } else {
+        console.log('[Analytics] No cache found, starting full index');
+        await performFullIndex();
+      }
+
+    } catch (error) {
+      console.error('[Analytics] Error loading analytics:', error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Display data from cache and fetch current TVL
+  const displayCachedData = async (cache: AnalyticsCache) => {
+    try {
       const factory = new ethers.Contract(contracts.FACTORY, FACTORY_ABI, provider);
       const pairsLength = await factory.allPairsLength();
 
-      let totalSwapCount = 0;
-      let totalLPCount = 0;
-      let totalVolumeUSDCount = 0;
-      let totalTVLCount = 0;
       const stats: PairStats[] = [];
+      let totalTVLCount = 0;
 
-      console.log(`Loading analytics for ${Number(pairsLength)} pairs...`);
-
-      // Iterate through all pairs
+      // Get all pair addresses and fetch current TVL
       for (let i = 0; i < Number(pairsLength); i++) {
         const pairAddress = await factory.allPairs(i);
         const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
 
         try {
-          // Get token addresses
           const token0Address = await pair.token0();
           const token1Address = await pair.token1();
 
           const token0 = getTokenByAddress(token0Address, chainId);
           const token1 = getTokenByAddress(token1Address, chainId);
 
-          if (!token0 || !token1) {
-            console.log(`Skipping pair ${pairAddress} - tokens not in registry (chain: ${chainId})`);
-            console.log(`  token0: ${token0Address} -> ${token0?.symbol || 'NOT FOUND'}`);
-            console.log(`  token1: ${token1Address} -> ${token1?.symbol || 'NOT FOUND'}`);
-            continue;
-          }
+          if (!token0 || !token1) continue;
 
-          console.log(`Analyzing pair: ${token0.symbol}/${token1.symbol}`);
+          // Get cached stats
+          const cachedStats = cache.pairStats[pairAddress];
 
-          // Get reserves to calculate TVL
-          const [reserve0, reserve1] = await pair.getReserves();
-          const tvl0USD = calculateUSDValue(token0.symbol, reserve0);
-          const tvl1USD = calculateUSDValue(token1.symbol, reserve1);
-          const pairTVL = tvl0USD + tvl1USD;
-          totalTVLCount += pairTVL;
-          console.log(`${token0.symbol}/${token1.symbol}: $${pairTVL.toFixed(2)} TVL`);
+          if (cachedStats) {
+            // Fetch current TVL
+            const [reserve0, reserve1] = await pair.getReserves();
+            const tvl0USD = calculateUSDValue(token0.symbol, reserve0);
+            const tvl1USD = calculateUSDValue(token1.symbol, reserve1);
+            const pairTVL = tvl0USD + tvl1USD;
+            totalTVLCount += pairTVL;
 
-          // Count total swaps and calculate volume for this pair
-          const swapFilter = pair.filters.Swap();
-          const swapEvents = await pair.queryFilter(swapFilter, 0);
-          const swapCount = swapEvents.length;
-          totalSwapCount += swapCount;
+            // Calculate APR/APY
+            let apr = 0;
+            let apy = 0;
+            if (pairTVL > 0 && cachedStats.accruedFeesUSD > 0) {
+              // APR = (Annual Fees / TVL) * 100
+              // Estimate annual fees from 30-day history
+              const annualFeesEstimate = cachedStats.accruedFeesUSD * (365 / 30);
+              apr = (annualFeesEstimate / pairTVL) * 100;
 
-          // Calculate volume in USD using Chainlink prices
-          let pairVolumeUSD = 0;
-          for (const event of swapEvents) {
-            if ('args' in event && event.args) {
-              const { amount0In, amount1In, amount0Out, amount1Out } = event.args;
-
-              // Calculate volume from the "in" amounts (what user sold)
-              // Sum both sides to get total volume
-              const volume0USD = calculateUSDValue(token0.symbol, amount0In);
-              const volume1USD = calculateUSDValue(token1.symbol, amount1In);
-              pairVolumeUSD += volume0USD + volume1USD;
+              // APY with daily compounding
+              const dailyRate = annualFeesEstimate / pairTVL / 365;
+              apy = (Math.pow(1 + dailyRate, 365) - 1) * 100;
             }
+
+            stats.push({
+              pairAddress,
+              token0Symbol: token0.symbol,
+              token1Symbol: token1.symbol,
+              token0Logo: token0.logoURI,
+              token1Logo: token1.logoURI,
+              totalSwaps: cachedStats.totalSwaps,
+              activeLPHolders: cachedStats.activeLPHolders,
+              volumeUSD: cachedStats.volumeUSD,
+              tvlUSD: pairTVL,
+              accruedFeesUSD: cachedStats.accruedFeesUSD,
+              feesToken0: cachedStats.feesToken0,
+              feesToken1: cachedStats.feesToken1,
+              apr,
+              apy,
+            });
           }
-
-          totalVolumeUSDCount += pairVolumeUSD;
-          console.log(`${token0.symbol}/${token1.symbol}: $${pairVolumeUSD.toFixed(2)} volume`);
-
-          // Count active LP positions
-          // Get all addresses that have received LP tokens via Transfer events
-          const transferFilter = pair.filters.Transfer();
-          const transferEvents = await pair.queryFilter(transferFilter, 0);
-
-          // Get unique addresses that received LP tokens (excluding zero address for mints)
-          const uniqueAddresses = new Set<string>();
-          for (const event of transferEvents) {
-            // TypeScript type guard for EventLog
-            if ('args' in event && event.args) {
-              const to = event.args.to;
-              // Exclude zero address (used in mint/burn)
-              if (to && to !== ethers.ZeroAddress) {
-                uniqueAddresses.add(to.toLowerCase());
-              }
-            }
-          }
-
-          // Check which addresses still have LP tokens
-          let activeLPHolders = 0;
-          const addressArray = Array.from(uniqueAddresses);
-          for (const address of addressArray) {
-            const balance = await pair.balanceOf(address);
-            if (balance > BigInt(0)) {
-              activeLPHolders++;
-              console.log(`Active LP holder: ${address} with balance ${balance.toString()}`);
-            }
-          }
-
-          totalLPCount += activeLPHolders;
-          console.log(`${token0.symbol}/${token1.symbol}: ${activeLPHolders} active LP holders`);
-
-          // Calculate accrued fees (0.3% of volume)
-          const accruedFeesUSD = pairVolumeUSD * 0.003;
-
-          // Calculate fees in each token (approximate 50/50 split)
-          let feesToken0Amount = BigInt(0);
-          let feesToken1Amount = BigInt(0);
-
-          for (const event of swapEvents) {
-            if ('args' in event && event.args) {
-              const { amount0In, amount1In } = event.args;
-              // 0.3% fee on input amounts
-              feesToken0Amount += (amount0In * BigInt(3)) / BigInt(1000);
-              feesToken1Amount += (amount1In * BigInt(3)) / BigInt(1000);
-            }
-          }
-
-          // Calculate APR and APY
-          let apr = 0;
-          let apy = 0;
-
-          if (pairTVL > 0 && swapEvents.length > 0) {
-            // Get first and last swap timestamps to calculate time period
-            const firstSwapBlock = await provider.getBlock(swapEvents[0].blockNumber);
-            const lastSwapBlock = await provider.getBlock(swapEvents[swapEvents.length - 1].blockNumber);
-
-            if (firstSwapBlock && lastSwapBlock) {
-              const firstTimestamp = firstSwapBlock.timestamp;
-              const lastTimestamp = lastSwapBlock.timestamp;
-              const timeElapsedSeconds = lastTimestamp - firstTimestamp;
-              const timeElapsedDays = timeElapsedSeconds / (60 * 60 * 24);
-
-              if (timeElapsedDays > 0) {
-                // APR = (Fees / TVL) * (365 / days) * 100
-                apr = (accruedFeesUSD / pairTVL) * (365 / timeElapsedDays) * 100;
-
-                // APY = (1 + daily_rate)^365 - 1
-                // Assuming fees compound daily
-                const dailyRate = accruedFeesUSD / pairTVL / timeElapsedDays;
-                apy = (Math.pow(1 + dailyRate, 365) - 1) * 100;
-              }
-            }
-          }
-
-          stats.push({
-            pairAddress,
-            token0Symbol: token0.symbol,
-            token1Symbol: token1.symbol,
-            token0Logo: token0.logoURI,
-            token1Logo: token1.logoURI,
-            totalSwaps: swapCount,
-            activeLPHolders,
-            volumeUSD: pairVolumeUSD,
-            tvlUSD: pairTVL,
-            accruedFeesUSD,
-            feesToken0: ethers.formatUnits(feesToken0Amount, 18),
-            feesToken1: ethers.formatUnits(feesToken1Amount, 18),
-            apr,
-            apy,
-          });
-
         } catch (error) {
-          console.error(`Error processing pair ${pairAddress}:`, error);
+          console.error(`[Analytics] Error processing pair ${pairAddress}:`, error);
           continue;
         }
       }
 
-      setTotalSwaps(totalSwapCount);
-      setTotalLPPositions(totalLPCount);
-      setTotalVolumeUSD(totalVolumeUSDCount);
+      // Update state with cached data + current TVL
+      setTotalSwaps(cache.globalStats.totalSwaps);
+      setTotalLPPositions(cache.globalStats.totalLPPositions);
+      setTotalVolumeUSD(cache.globalStats.totalVolumeUSD);
       setTotalTVL(totalTVLCount);
       setPairStats(stats);
+      setCacheAge(formatCacheAge(cache));
 
-      console.log(`Analytics loaded: ${totalSwapCount} swaps, ${totalLPCount} LP positions, $${totalVolumeUSDCount.toFixed(2)} volume, $${totalTVLCount.toFixed(2)} TVL`);
-
+      console.log('[Analytics] Displayed cached data');
     } catch (error) {
-      console.error('Error loading analytics:', error);
-    } finally {
-      setLoading(false);
+      console.error('[Analytics] Error displaying cached data:', error);
     }
   };
 
-  if (loading) {
+  // Sync cache with recent blockchain data
+  const syncCache = async (cache: AnalyticsCache) => {
+    try {
+      setIndexing(true);
+
+      const factory = new ethers.Contract(contracts.FACTORY, FACTORY_ABI, provider);
+      const pairsLength = await factory.allPairsLength();
+
+      // Get all pair info
+      const pairsToIndex: Array<{ address: string; token0Symbol: string; token1Symbol: string }> = [];
+
+      for (let i = 0; i < Number(pairsLength); i++) {
+        const pairAddress = await factory.allPairs(i);
+        const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
+
+        try {
+          const token0Address = await pair.token0();
+          const token1Address = await pair.token1();
+
+          const token0 = getTokenByAddress(token0Address, chainId);
+          const token1 = getTokenByAddress(token1Address, chainId);
+
+          if (token0 && token1) {
+            pairsToIndex.push({
+              address: pairAddress,
+              token0Symbol: token0.symbol,
+              token1Symbol: token1.symbol,
+            });
+          }
+        } catch (error) {
+          continue;
+        }
+      }
+
+      // Quick sync
+      const updatedCache = await quickSync(
+        pairsToIndex,
+        provider,
+        cache,
+        prices,
+        setIndexProgress
+      );
+
+      cacheRef.current = updatedCache;
+      await displayCachedData(updatedCache);
+      setIndexing(false);
+
+    } catch (error) {
+      console.error('[Analytics] Error syncing cache:', error);
+      setIndexing(false);
+    }
+  };
+
+  // Perform full indexing (first time or manual refresh)
+  const performFullIndex = async () => {
+    try {
+      setIndexing(true);
+      setIndexProgress({
+        currentBlock: 0,
+        targetBlock: 0,
+        currentPair: 0,
+        totalPairs: 0,
+        pairAddress: '',
+        token0Symbol: '',
+        token1Symbol: '',
+        isComplete: false,
+      });
+
+      const factory = new ethers.Contract(contracts.FACTORY, FACTORY_ABI, provider);
+      const pairsLength = await factory.allPairsLength();
+
+      // Get all pair info
+      const pairsToIndex: Array<{ address: string; token0Symbol: string; token1Symbol: string }> = [];
+
+      for (let i = 0; i < Number(pairsLength); i++) {
+        const pairAddress = await factory.allPairs(i);
+        const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
+
+        try {
+          const token0Address = await pair.token0();
+          const token1Address = await pair.token1();
+
+          const token0 = getTokenByAddress(token0Address, chainId);
+          const token1 = getTokenByAddress(token1Address, chainId);
+
+          if (token0 && token1) {
+            pairsToIndex.push({
+              address: pairAddress,
+              token0Symbol: token0.symbol,
+              token1Symbol: token1.symbol,
+            });
+          }
+        } catch (error) {
+          continue;
+        }
+      }
+
+      // Index all pairs
+      const cache = await indexAnalytics(
+        pairsToIndex,
+        provider,
+        chainId,
+        prices,
+        null,
+        setIndexProgress
+      );
+
+      cacheRef.current = cache;
+      await displayCachedData(cache);
+      setIndexing(false);
+
+    } catch (error) {
+      console.error('[Analytics] Error performing full index:', error);
+      setIndexing(false);
+    }
+  };
+
+  // Manual refresh
+  const handleRefresh = () => {
+    hasLoadedRef.current = false;
+    loadAnalytics();
+  };
+
+  if (loading && !indexing) {
     return (
       <div className="flex flex-col justify-center items-center py-12">
         <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600 mb-4"></div>
@@ -272,20 +329,60 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
 
   return (
     <div className="space-y-6">
+      {/* Indexing Progress Bar */}
+      {indexing && indexProgress && !indexProgress.isComplete && (
+        <div className="bg-blue-50 border border-blue-200 rounded-xl p-4">
+          <div className="flex items-center justify-between mb-2">
+            <div>
+              <p className="text-sm font-medium text-blue-900">
+                Indexing Analytics Data
+              </p>
+              <p className="text-xs text-blue-700">
+                {indexProgress.token0Symbol && indexProgress.token1Symbol
+                  ? `Processing ${indexProgress.token0Symbol}/${indexProgress.token1Symbol} (${indexProgress.currentPair}/${indexProgress.totalPairs})`
+                  : 'Preparing...'}
+              </p>
+            </div>
+            <p className="text-sm font-medium text-blue-900">
+              {indexProgress.totalPairs > 0
+                ? `${Math.round((indexProgress.currentPair / indexProgress.totalPairs) * 100)}%`
+                : '0%'}
+            </p>
+          </div>
+          <div className="w-full bg-blue-200 rounded-full h-2">
+            <div
+              className="bg-blue-600 h-2 rounded-full transition-all duration-300"
+              style={{
+                width: indexProgress.totalPairs > 0
+                  ? `${(indexProgress.currentPair / indexProgress.totalPairs) * 100}%`
+                  : '0%',
+              }}
+            />
+          </div>
+          <p className="text-xs text-blue-600 mt-2">
+            Block {indexProgress.currentBlock.toLocaleString()} / {indexProgress.targetBlock.toLocaleString()}
+          </p>
+        </div>
+      )}
+
       {/* Header */}
       <div className="flex justify-between items-center mb-6">
         <div>
           <h2 className="text-3xl font-bold text-gray-800">Analytics</h2>
-          <p className="text-sm text-gray-500 mt-1">DEX protocol statistics</p>
+          <p className="text-sm text-gray-500 mt-1">
+            DEX protocol statistics
+            {cacheAge && ` • Last updated: ${cacheAge}`}
+          </p>
         </div>
         <button
-          onClick={loadAnalytics}
-          className="text-indigo-600 hover:text-indigo-700 font-medium text-sm flex items-center gap-2"
+          onClick={handleRefresh}
+          disabled={indexing}
+          className="text-indigo-600 hover:text-indigo-700 font-medium text-sm flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <svg className={`w-5 h-5 ${indexing ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
           </svg>
-          Refresh
+          {indexing ? 'Syncing...' : 'Refresh'}
         </button>
       </div>
 
@@ -297,7 +394,7 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
             <div>
               <p className="text-purple-100 text-sm font-medium mb-2">Total Volume</p>
               <p className="text-5xl font-bold">${totalVolumeUSD.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
-              <p className="text-purple-100 text-sm mt-2">All-time trading volume</p>
+              <p className="text-purple-100 text-sm mt-2">Last 30 days</p>
             </div>
             <div className="bg-white bg-opacity-20 rounded-full p-4">
               <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -313,7 +410,7 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
             <div>
               <p className="text-indigo-100 text-sm font-medium mb-2">Total Swaps</p>
               <p className="text-5xl font-bold">{totalSwaps.toLocaleString()}</p>
-              <p className="text-indigo-100 text-sm mt-2">All-time swap transactions</p>
+              <p className="text-indigo-100 text-sm mt-2">Last 30 days</p>
             </div>
             <div className="bg-white bg-opacity-20 rounded-full p-4">
               <svg className="w-12 h-12" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -376,7 +473,6 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
               >
                 <div className="flex items-center justify-between gap-8">
                   <div className="flex items-center gap-3 min-w-[200px]">
-                    {/* LP Token Icon - Split circle design */}
                     <LPTokenIcon
                       token0LogoURI={stat.token0Logo}
                       token1LogoURI={stat.token1Logo}
@@ -444,16 +540,15 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
           <div>
             <h4 className="font-semibold text-blue-900 mb-1">About Analytics</h4>
             <p className="text-sm text-blue-800">
-              All data is queried directly from the blockchain. Statistics include all historical activity since deployment.
+              Analytics data is indexed from the blockchain and cached locally for fast loading. Data represents the last 30 days of activity.
             </p>
             <ul className="list-disc list-inside text-sm text-blue-800 mt-2 space-y-1">
               <li>Total Value Locked (TVL): Current dollar value of all assets in liquidity pools</li>
-              <li>Total Volume: Cumulative USD value of all swaps using real-time Chainlink prices</li>
-              <li>Fees: Total trading fees collected (0.3% of swap volume, distributed to LPs)</li>
-              <li>APR (Annual Percentage Rate): Annualized return from trading fees based on historical activity</li>
-              <li>Total Swaps: Count of all swap transactions across all pairs</li>
-              <li>Active LP Positions: Addresses currently holding LP tokens (balance {'>'} 0)</li>
-              <li>Data is updated in real-time when you refresh</li>
+              <li>Volume: USD value of swaps over the last 30 days using Chainlink prices</li>
+              <li>Fees: Trading fees collected (0.3% of swap volume, distributed to LPs)</li>
+              <li>APR: Estimated annual return from fees (extrapolated from 30-day data)</li>
+              <li>Data auto-refreshes every hour, or click "Refresh" to update manually</li>
+              <li>First load may take 2-3 minutes to index historical data</li>
             </ul>
           </div>
         </div>
