@@ -48,11 +48,19 @@ create-pairs:
 add-liquidity:
 	@forge script script/AddMultipleLiquidity.s.sol:AddMultipleLiquidity --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --broadcast
 
+# Deploy Token Faucet
+deploy-faucet:
+	@forge script script/DeployFaucet.s.sol:DeployFaucet --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --broadcast
+
+# Use the faucet to claim tokens
+use-faucet:
+	@forge script script/UseFaucet.s.sol:UseFaucet --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --broadcast
+
 # Execute random swaps
 random-swaps:
 	@forge script script/RandomSwaps.s.sol:RandomSwaps --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --broadcast
 
-# Mint tokens to a user address (default: Anvil account #1)
+# Mint tokens to a user address (default: Anvil account #1) [Deprecated - use faucet instead]
 # Usage: make mint-tokens USER_ADDRESS=0xYourAddress
 mint-tokens:
 	@forge script script/MintTokensToUser.s.sol:MintTokensToUser --rpc-url http://127.0.0.1:8545 --private-key 0xac0974bec39a17e36ba4a6b4d238ff944bacb478cbed5efcae784d7bf4f2ff80 --broadcast

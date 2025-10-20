@@ -12,19 +12,6 @@ import "../src/MockERC20.sol";
  * @dev Use this to add additional liquidity to existing pairs or create new ones
  */
 contract AddMultipleLiquidity is Script {
-    // Deployed contract addresses
-    address constant FACTORY = 0x4C2F7092C2aE51D986bEFEe378e50BD4dB99C901;
-    address constant ROUTER = 0x7A9Ec1d04904907De0ED7b6839CcdD59c3716AC9;
-
-    // Token addresses - updated with latest deployment
-    address constant USDC = 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D;
-    address constant USDT = 0xA4899D35897033b927acFCf422bc745916139776;
-    address constant DAI = 0xf953b3A269d80e3eB0F2947630Da976B896A8C5b;
-    address constant WETH = 0xAA292E8611aDF267e563f334Ee42320aC96D0463;
-    address constant WBTC = 0x5c74c94173F05dA1720953407cbb920F3DF9f887;
-    address constant LINK = 0x720472c8ce72c2A2D711333e064ABD3E6BbEAdd3;
-    address constant UNI = 0xe8D2A1E88c91DCd5433208d4152Cc4F399a7e91d;
-
     struct LiquidityPair {
         address tokenA;
         address tokenB;
@@ -33,71 +20,66 @@ contract AddMultipleLiquidity is Script {
         string name;
     }
 
+    struct Addresses {
+        address factory;
+        address router;
+        address mUSDC;
+        address mUSDT;
+        address mDAI;
+        address mWETH;
+        address mWBTC;
+        address mLINK;
+        address mUNI;
+    }
+
+    function getAddresses() internal view returns (Addresses memory) {
+        // Read from environment variables (.env file)
+        // Use FACTORY_ADDRESS format to match .env file
+        return Addresses({
+            factory: vm.envOr("FACTORY_ADDRESS", address(0)),
+            router: vm.envOr("ROUTER_ADDRESS", address(0)),
+            mUSDC: vm.envOr("USDC_ADDRESS", address(0)),
+            mUSDT: vm.envOr("USDT_ADDRESS", address(0)),
+            mDAI: vm.envOr("DAI_ADDRESS", address(0)),
+            mWETH: vm.envOr("WETH_ADDRESS", address(0)),
+            mWBTC: vm.envOr("WBTC_ADDRESS", address(0)),
+            mLINK: vm.envOr("LINK_ADDRESS", address(0)),
+            mUNI: vm.envOr("UNI_ADDRESS", address(0))
+        });
+    }
+
+    function validateAddresses(Addresses memory addrs) internal pure {
+        require(addrs.factory != address(0), "FACTORY_ADDRESS not set in .env");
+        require(addrs.router != address(0), "ROUTER_ADDRESS not set in .env");
+        require(addrs.mUSDC != address(0), "USDC_ADDRESS not set in .env");
+        require(addrs.mUSDT != address(0), "USDT_ADDRESS not set in .env");
+        require(addrs.mDAI != address(0), "DAI_ADDRESS not set in .env");
+        require(addrs.mWETH != address(0), "WETH_ADDRESS not set in .env");
+        require(addrs.mWBTC != address(0), "WBTC_ADDRESS not set in .env");
+        require(addrs.mLINK != address(0), "LINK_ADDRESS not set in .env");
+        require(addrs.mUNI != address(0), "UNI_ADDRESS not set in .env");
+    }
+
     function run() external {
-        DEXFactory factory = DEXFactory(FACTORY);
-        DEXRouter router = DEXRouter(ROUTER);
+        Addresses memory addrs = getAddresses();
+        validateAddresses(addrs);
 
-        // Define pairs to add liquidity to
-        LiquidityPair[] memory pairs = new LiquidityPair[](7);
+        DEXFactory factory = DEXFactory(addrs.factory);
+        DEXRouter router = DEXRouter(addrs.router);
 
-        // Stablecoin pairs (1:1 ratio)
-        pairs[0] = LiquidityPair({
-            tokenA: USDC,
-            tokenB: USDT,
-            amountA: 5000 * 10**18,
-            amountB: 5000 * 10**18,
-            name: "USDC/USDT"
-        });
+        // Define pairs to add ADDITIONAL liquidity to (if needed)
+        // Note: Initial liquidity is added in CreatePairs.s.sol
+        // Use this script to add more liquidity to existing pairs
+        LiquidityPair[] memory pairs = new LiquidityPair[](0);
 
-        pairs[1] = LiquidityPair({
-            tokenA: USDC,
-            tokenB: DAI,
-            amountA: 5000 * 10**18,
-            amountB: 5000 * 10**18,
-            name: "USDC/DAI"
-        });
-
-        // WETH pairs ($3000 per WETH)
-        pairs[2] = LiquidityPair({
-            tokenA: WETH,
-            tokenB: USDC,
-            amountA: 5 * 10**18,
-            amountB: 15000 * 10**18,
-            name: "WETH/USDC"
-        });
-
-        pairs[3] = LiquidityPair({
-            tokenA: WETH,
-            tokenB: USDT,
-            amountA: 5 * 10**18,
-            amountB: 15000 * 10**18,
-            name: "WETH/USDT"
-        });
-
-        // WBTC pairs ($60000 per WBTC, 20 WETH per WBTC)
-        pairs[4] = LiquidityPair({
-            tokenA: WBTC,
-            tokenB: USDC,
-            amountA: 0.5 * 10**18,
-            amountB: 30000 * 10**18,
-            name: "WBTC/USDC"
-        });
-
-        pairs[5] = LiquidityPair({
-            tokenA: LINK,
-            tokenB: USDC,
-            amountA: 1000 * 10**18,
-            amountB: 15000 * 10**18,
-            name: "LINK/USDC"
-        });
-
-        pairs[6] = LiquidityPair({
-            tokenA: UNI,
-            tokenB: USDC,
-            amountA: 1000 * 10**18,
-            amountB: 10000 * 10**18,
-            name: "UNI/USDC"
-        });
+        // Example: Uncomment to add more liquidity to existing pairs
+        // pairs[0] = LiquidityPair({
+        //     tokenA: addrs.mUSDC,
+        //     tokenB: addrs.mUSDT,
+        //     amountA: 10000 * 10**18,
+        //     amountB: 10000 * 10**18,
+        //     name: "mUSDC/mUSDT"
+        // });
 
         vm.startBroadcast();
 
@@ -139,8 +121,8 @@ contract AddMultipleLiquidity is Script {
             }
 
             // Approve tokens
-            MockERC20(pair.tokenA).approve(ROUTER, pair.amountA);
-            MockERC20(pair.tokenB).approve(ROUTER, pair.amountB);
+            MockERC20(pair.tokenA).approve(addrs.router, pair.amountA);
+            MockERC20(pair.tokenB).approve(addrs.router, pair.amountB);
 
             // Add liquidity (10% slippage tolerance)
             try router.addLiquidity(

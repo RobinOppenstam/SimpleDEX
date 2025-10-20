@@ -39,7 +39,17 @@ contract DeployTokens is Script {
         console.log("mWBTC:", address(wbtc));
         console.log("mLINK:", address(link));
         console.log("mUNI:", address(uni));
-        
+
         vm.stopBroadcast();
+
+        // Output for easy env extraction
+        console.log("\n=== Export these to .env ===");
+        console.log("USDC_ADDRESS=", vm.toLowercase(vm.toString(address(usdc))));
+        console.log("USDT_ADDRESS=", vm.toLowercase(vm.toString(address(usdt))));
+        console.log("DAI_ADDRESS=", vm.toLowercase(vm.toString(address(dai))));
+        console.log("WETH_ADDRESS=", vm.toLowercase(vm.toString(address(weth))));
+        console.log("WBTC_ADDRESS=", vm.toLowercase(vm.toString(address(wbtc))));
+        console.log("LINK_ADDRESS=", vm.toLowercase(vm.toString(address(link))));
+        console.log("UNI_ADDRESS=", vm.toLowercase(vm.toString(address(uni))));
     }
 }

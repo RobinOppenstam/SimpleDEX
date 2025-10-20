@@ -7,26 +7,52 @@ import "../src/DEXFactory.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 contract RandomSwaps is Script {
-    // Deployed contract addresses
-    address constant FACTORY = 0x4C2F7092C2aE51D986bEFEe378e50BD4dB99C901;
-    address constant ROUTER = 0x7A9Ec1d04904907De0ED7b6839CcdD59c3716AC9;
-
-    // Token addresses - updated with latest deployment
-    address constant USDC = 0x86A2EE8FAf9A840F7a2c64CA3d51209F9A02081D;
-    address constant USDT = 0xA4899D35897033b927acFCf422bc745916139776;
-    address constant DAI = 0xf953b3A269d80e3eB0F2947630Da976B896A8C5b;
-    address constant WETH = 0xAA292E8611aDF267e563f334Ee42320aC96D0463;
-    address constant WBTC = 0x5c74c94173F05dA1720953407cbb920F3DF9f887;
-    address constant LINK = 0x720472c8ce72c2A2D711333e064ABD3E6BbEAdd3;
-    address constant UNI = 0xe8D2A1E88c91DCd5433208d4152Cc4F399a7e91d;
-
     struct SwapPair {
         address tokenIn;
         address tokenOut;
         uint256 amountIn;
     }
 
+    struct Addresses {
+        address router;
+        address mUSDC;
+        address mUSDT;
+        address mDAI;
+        address mWETH;
+        address mWBTC;
+        address mLINK;
+        address mUNI;
+    }
+
+    function getAddresses() internal view returns (Addresses memory) {
+        // Read from environment variables (.env file)
+        return Addresses({
+            router: vm.envOr("ROUTER_ADDRESS", address(0)),
+            mUSDC: vm.envOr("USDC_ADDRESS", address(0)),
+            mUSDT: vm.envOr("USDT_ADDRESS", address(0)),
+            mDAI: vm.envOr("DAI_ADDRESS", address(0)),
+            mWETH: vm.envOr("WETH_ADDRESS", address(0)),
+            mWBTC: vm.envOr("WBTC_ADDRESS", address(0)),
+            mLINK: vm.envOr("LINK_ADDRESS", address(0)),
+            mUNI: vm.envOr("UNI_ADDRESS", address(0))
+        });
+    }
+
+    function validateAddresses(Addresses memory addrs) internal pure {
+        require(addrs.router != address(0), "ROUTER_ADDRESS not set in .env");
+        require(addrs.mUSDC != address(0), "USDC_ADDRESS not set in .env");
+        require(addrs.mUSDT != address(0), "USDT_ADDRESS not set in .env");
+        require(addrs.mDAI != address(0), "DAI_ADDRESS not set in .env");
+        require(addrs.mWETH != address(0), "WETH_ADDRESS not set in .env");
+        require(addrs.mWBTC != address(0), "WBTC_ADDRESS not set in .env");
+        require(addrs.mLINK != address(0), "LINK_ADDRESS not set in .env");
+        require(addrs.mUNI != address(0), "UNI_ADDRESS not set in .env");
+    }
+
     function run() external {
+        Addresses memory addrs = getAddresses();
+        validateAddresses(addrs);
+
         vm.startBroadcast();
 
         address deployer = msg.sender;
@@ -34,11 +60,11 @@ contract RandomSwaps is Script {
 
         // Define swap pairs with amounts - using only existing pairs
         SwapPair[5] memory swaps = [
-            SwapPair(WETH, USDC, 10 ether),      // 10 WETH -> USDC (pair exists)
-            SwapPair(USDC, USDT, 5000 ether),    // 5000 USDC -> USDT (pair exists)
-            SwapPair(USDC, DAI, 3000 ether),     // 3000 USDC -> DAI (pair exists)
-            SwapPair(WBTC, WETH, 1 ether / 10),  // 0.1 WBTC -> WETH (pair exists)
-            SwapPair(LINK, USDC, 100 ether)      // 100 LINK -> USDC (pair exists)
+            SwapPair(addrs.mWETH, addrs.mUSDC, 10 ether),      // 10 mWETH -> mUSDC (pair exists)
+            SwapPair(addrs.mUSDC, addrs.mUSDT, 5000 ether),    // 5000 mUSDC -> mUSDT (pair exists)
+            SwapPair(addrs.mUSDC, addrs.mDAI, 3000 ether),     // 3000 mUSDC -> mDAI (pair exists)
+            SwapPair(addrs.mWBTC, addrs.mWETH, 1 ether / 10),  // 0.1 mWBTC -> mWETH (pair exists)
+            SwapPair(addrs.mLINK, addrs.mUSDC, 100 ether)      // 100 mLINK -> mUSDC (pair exists)
         ];
 
         for (uint i = 0; i < swaps.length; i++) {
@@ -46,7 +72,8 @@ contract RandomSwaps is Script {
                 deployer,
                 swaps[i].tokenIn,
                 swaps[i].tokenOut,
-                swaps[i].amountIn
+                swaps[i].amountIn,
+                addrs.router
             );
         }
 
@@ -58,13 +85,23 @@ contract RandomSwaps is Script {
         address user,
         address tokenIn,
         address tokenOut,
-        uint256 amountIn
+        uint256 amountIn,
+        address routerAddress
     ) internal {
-        DEXRouter router = DEXRouter(ROUTER);
-        IERC20 token = IERC20(tokenIn);
+        _checkBalanceAndApprove(user, tokenIn, tokenOut, amountIn, routerAddress);
+        _performSwap(user, tokenIn, tokenOut, amountIn, routerAddress);
+    }
 
-        // Check balance
+    function _checkBalanceAndApprove(
+        address user,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address routerAddress
+    ) private {
+        IERC20 token = IERC20(tokenIn);
         uint256 balance = token.balanceOf(user);
+
         console.log("\n--- Executing Swap ---");
         console.log("Token In:", tokenIn);
         console.log("Token Out:", tokenOut);
@@ -73,30 +110,35 @@ contract RandomSwaps is Script {
 
         require(balance >= amountIn, "Insufficient balance");
 
-        // Approve router
-        token.approve(ROUTER, amountIn);
+        token.approve(routerAddress, amountIn);
         console.log("Approved router");
+    }
 
-        // Build path
+    function _performSwap(
+        address user,
+        address tokenIn,
+        address tokenOut,
+        uint256 amountIn,
+        address routerAddress
+    ) private {
+        DEXRouter router = DEXRouter(routerAddress);
+
         address[] memory path = new address[](2);
         path[0] = tokenIn;
         path[1] = tokenOut;
 
-        // Get expected output
         uint[] memory amounts = router.getAmountsOut(amountIn, path);
-        uint amountOutMin = (amounts[1] * 95) / 100; // 5% slippage
+        uint amountOutMin = (amounts[1] * 95) / 100;
 
         console.log("Expected output:", amounts[1]);
         console.log("Min output (5% slippage):", amountOutMin);
 
-        // Execute swap
-        uint deadline = block.timestamp + 300;
         uint[] memory swappedAmounts = router.swapExactTokensForTokens(
             amountIn,
             amountOutMin,
             path,
             user,
-            deadline
+            block.timestamp + 300
         );
 
         console.log("Swap successful!");

@@ -129,6 +129,21 @@ def main():
             env_content.append(f"{name}_AGGREGATOR={agg}")
             print(f"{Colors.GREEN}✓ {name.replace('_', '/')}:         {agg}{Colors.NC}")
 
+    env_content.append("")
+    env_content.append("# Token Faucet Address")
+
+    # Extract Faucet
+    print(f"\n{Colors.YELLOW}Token Faucet:{Colors.NC}")
+    faucet_addresses = extract_addresses_from_broadcast("DeployFaucet.s.sol")
+
+    faucet = next((a['address'] for a in faucet_addresses if a['name'] == 'TokenFaucet'), None)
+
+    if faucet:
+        env_content.append(f"FAUCET_ADDRESS={faucet}")
+        print(f"{Colors.GREEN}✓ TokenFaucet: {faucet}{Colors.NC}")
+    else:
+        print(f"{Colors.YELLOW}⚠ TokenFaucet not deployed yet{Colors.NC}")
+
     # Write .env file
     with open(env_file, 'w') as f:
         f.write('\n'.join(env_content) + '\n')
