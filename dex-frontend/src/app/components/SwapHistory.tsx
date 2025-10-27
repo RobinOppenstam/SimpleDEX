@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from 'react';
 import { ethers } from 'ethers';
-import { Token, getAllTokens, getTokenByAddress } from '../config/tokens';
+import { Token, getTokenByAddress } from '../config/tokens';
 import { formatNumber } from '../utils/formatNumber';
 import { useNetwork } from '@/hooks/useNetwork';
 
@@ -47,7 +47,6 @@ interface SwapHistoryProps {
 export default function SwapHistory({ signer, contracts }: SwapHistoryProps) {
   const [swaps, setSwaps] = useState<SwapEvent[]>([]);
   const [loading, setLoading] = useState(true);
-  const [userAddress, setUserAddress] = useState<string>('');
   const { chainId } = useNetwork();
 
   useEffect(() => {
@@ -58,7 +57,6 @@ export default function SwapHistory({ signer, contracts }: SwapHistoryProps) {
     try {
       setLoading(true);
       const address = await signer.getAddress();
-      setUserAddress(address);
 
       const provider = signer.provider;
       if (!provider) return;
@@ -105,9 +103,10 @@ export default function SwapHistory({ signer, contracts }: SwapHistoryProps) {
           // Filter swaps where user is the recipient
           for (const event of events) {
             const block = await provider.getBlock(event.blockNumber);
-            const args = event.args;
 
-            if (!args || !block) continue;
+            // Type assertion for EventLog which has args
+            if (!('args' in event) || !event.args || !block) continue;
+            const args = event.args;
 
             console.log(`Swap event - to: ${args.to}, user: ${address}`);
 

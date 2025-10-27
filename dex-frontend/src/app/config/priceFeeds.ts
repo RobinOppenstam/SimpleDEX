@@ -17,6 +17,16 @@ export const AGGREGATOR_ABI = [
   'function getRoundData(uint80 _roundId) external view returns (uint80 roundId, int256 answer, uint256 startedAt, uint256 updatedAt, uint80 answeredInRound)',
 ];
 
+// Chainlink aggregator addresses by token symbol
+// NOTE: These are placeholder addresses and should be configured per network
+export const AGGREGATORS: Record<string, string> = {
+  // Sepolia testnet Chainlink aggregators
+  'mWETH': '', // ETH/USD feed
+  'mBTC': '', // BTC/USD feed
+  'LINK': '', // LINK/USD feed
+  // Add more as needed
+};
+
 /**
  * Format price with 8 decimals (Chainlink standard for USD pairs)
  */

@@ -90,7 +90,8 @@ export async function fetchLogsFromEtherscan(
       throw new Error(`Etherscan API error: ${data.message}`);
     }
 
-    // Convert Etherscan logs to ethers.js Log format
+    // Convert Etherscan logs to a compatible format
+    // Note: These are not full ethers.Log objects, but have the necessary fields for parsing
     const logs = (data.result as EtherscanLog[]).map((log) => ({
       address: log.address,
       topics: log.topics,
@@ -102,7 +103,7 @@ export async function fetchLogsFromEtherscan(
       removed: false,
       blockHash: '', // Not provided by Etherscan
       index: parseInt(log.logIndex, 16),
-    })) as ethers.Log[];
+    })) as unknown as ethers.Log[];
 
     console.log(`[Etherscan] Fetched ${logs.length} logs from ${contractAddress.slice(0, 10)}`);
     return logs;
@@ -185,7 +186,7 @@ export async function fetchAllLogsFromEtherscan(
         removed: false,
         blockHash: '',
         index: parseInt(log.logIndex, 16),
-      })) as ethers.Log[];
+      })) as unknown as ethers.Log[];
 
       allLogs.push(...logs);
 
