@@ -6,6 +6,9 @@ import { ethers } from 'ethers';
 import { Token, getTokenByAddress } from '../config/tokens';
 import { formatNumber } from '../utils/formatNumber';
 import { useNetwork } from '@/hooks/useNetwork';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { RefreshCw, ArrowRight, ExternalLink } from 'lucide-react';
 
 const FACTORY_ABI = [
   'function getPair(address tokenA, address tokenB) external view returns (address pair)',
@@ -181,7 +184,7 @@ export default function SwapHistory({ signer, contracts }: SwapHistoryProps) {
   if (loading) {
     return (
       <div className="flex justify-center items-center py-12">
-        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-indigo-600"></div>
+        <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary"></div>
       </div>
     );
   }
@@ -189,14 +192,14 @@ export default function SwapHistory({ signer, contracts }: SwapHistoryProps) {
   if (swaps.length === 0) {
     return (
       <div className="text-center py-12">
-        <div className="text-gray-400 mb-2">
+        <div className="text-muted-foreground mb-2">
           <svg className="w-16 h-16 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4" />
           </svg>
         </div>
-        <h3 className="text-xl font-semibold text-gray-600 mb-2">No Swap History</h3>
-        <p className="text-gray-500">You haven't made any swaps yet.</p>
-        <p className="text-gray-500">Your swap transactions will appear here!</p>
+        <h3 className="text-xl font-semibold text-foreground mb-2">No Swap History</h3>
+        <p className="text-muted-foreground">You haven't made any swaps yet.</p>
+        <p className="text-muted-foreground">Your swap transactions will appear here!</p>
       </div>
     );
   }
@@ -205,22 +208,25 @@ export default function SwapHistory({ signer, contracts }: SwapHistoryProps) {
     <div className="space-y-4">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h2 className="text-2xl font-bold">Swap History</h2>
-          <p className="text-sm text-gray-500 mt-1">{swaps.length} total swaps</p>
+          <h2 className="text-2xl font-bold bg-gradient-silver bg-clip-text text-transparent">Swap History</h2>
+          <p className="text-sm text-muted-foreground mt-1">{swaps.length} total swaps</p>
         </div>
-        <button
+        <Button
           onClick={loadSwapHistory}
-          className="text-indigo-600 hover:text-indigo-700 font-medium text-sm"
+          variant="outline"
+          size="sm"
+          className="gap-2"
         >
-          🔄 Refresh
-        </button>
+          <RefreshCw className="w-4 h-4" />
+          Refresh
+        </Button>
       </div>
 
       <div className="space-y-3">
         {swaps.map((swap, index) => (
           <div
             key={`${swap.transactionHash}-${index}`}
-            className="bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-shadow"
+            className="glass gradient-border rounded-xl p-5 hover:shadow-glow transition-all"
           >
             {/* Header - Swap Direction */}
             <div className="flex items-center justify-between mb-4">
@@ -234,13 +240,11 @@ export default function SwapHistory({ signer, contracts }: SwapHistoryProps) {
                       className="w-10 h-10 rounded-full"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center text-white font-bold text-sm">
+                    <div className="w-10 h-10 rounded-full bg-gradient-silver flex items-center justify-center text-white font-bold text-sm">
                       {swap.tokenIn.symbol.slice(0, 2)}
                     </div>
                   )}
-                  <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                  </svg>
+                  <ArrowRight className="w-5 h-5 text-primary" />
                   {swap.tokenOut.logoURI ? (
                     <img
                       src={swap.tokenOut.logoURI}
@@ -248,7 +252,7 @@ export default function SwapHistory({ signer, contracts }: SwapHistoryProps) {
                       className="w-10 h-10 rounded-full"
                     />
                   ) : (
-                    <div className="w-10 h-10 rounded-full bg-gradient-to-br from-purple-400 to-purple-600 flex items-center justify-center text-white font-bold text-sm">
+                    <div className="w-10 h-10 rounded-full bg-gradient-silver flex items-center justify-center text-white font-bold text-sm">
                       {swap.tokenOut.symbol.slice(0, 2)}
                     </div>
                   )}
@@ -256,55 +260,56 @@ export default function SwapHistory({ signer, contracts }: SwapHistoryProps) {
 
                 {/* Swap Details */}
                 <div>
-                  <p className="font-semibold text-gray-800">
+                  <p className="font-semibold text-foreground">
                     Swap {swap.tokenIn.symbol} → {swap.tokenOut.symbol}
                   </p>
-                  <p className="text-xs text-gray-500">{formatTimestamp(swap.timestamp)}</p>
+                  <p className="text-xs text-muted-foreground">{formatTimestamp(swap.timestamp)}</p>
                 </div>
               </div>
 
               {/* Block Number */}
               <div className="text-right">
-                <p className="text-xs text-gray-500">Block</p>
-                <p className="text-sm font-mono text-gray-700">#{swap.blockNumber}</p>
+                <p className="text-xs text-muted-foreground">Block</p>
+                <Badge variant="outline" className="mt-1">#{swap.blockNumber}</Badge>
               </div>
             </div>
 
             {/* Amounts */}
-            <div className="grid grid-cols-2 gap-4 py-3 border-t border-b border-gray-100">
+            <div className="grid grid-cols-2 gap-4 py-3 border-t border-b border-border">
               <div>
-                <p className="text-xs text-gray-500 mb-1">Amount In</p>
-                <p className="text-lg font-bold text-red-600">
+                <p className="text-xs text-muted-foreground mb-1">Amount In</p>
+                <p className="text-lg font-bold text-destructive">
                   -{formatNumber(swap.amountIn)} {swap.tokenIn.symbol}
                 </p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">Amount Out</p>
-                <p className="text-lg font-bold text-green-600">
+                <p className="text-xs text-muted-foreground mb-1">Amount Out</p>
+                <p className="text-lg font-bold text-green-400">
                   +{formatNumber(swap.amountOut)} {swap.tokenOut.symbol}
                 </p>
               </div>
             </div>
 
             {/* Exchange Rate */}
-            <div className="mt-3 pt-3 border-t border-gray-100">
-              <p className="text-xs text-gray-500 mb-1">Exchange Rate</p>
-              <p className="text-sm text-gray-700">
+            <div className="mt-3 pt-3 border-t border-border">
+              <p className="text-xs text-muted-foreground mb-1">Exchange Rate</p>
+              <p className="text-sm text-foreground">
                 1 {swap.tokenIn.symbol} = {formatNumber(parseFloat(swap.amountOut) / parseFloat(swap.amountIn))} {swap.tokenOut.symbol}
               </p>
             </div>
 
             {/* Transaction Hash */}
-            <div className="mt-3 pt-3 border-t border-gray-100">
+            <div className="mt-3 pt-3 border-t border-border">
               <div className="flex justify-between items-center">
-                <p className="text-xs text-gray-500">Transaction Hash</p>
+                <p className="text-xs text-muted-foreground">Transaction Hash</p>
                 <a
                   href={`https://etherscan.io/tx/${swap.transactionHash}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-xs font-mono text-indigo-600 hover:text-indigo-700 hover:underline"
+                  className="text-xs font-mono text-primary hover:text-primary/80 hover:underline flex items-center gap-1"
                 >
-                  {formatTxHash(swap.transactionHash)} ↗
+                  {formatTxHash(swap.transactionHash)}
+                  <ExternalLink className="w-3 h-3" />
                 </a>
               </div>
             </div>

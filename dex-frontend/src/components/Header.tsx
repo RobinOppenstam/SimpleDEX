@@ -20,13 +20,15 @@ export function Header({ activeTab, setActiveTab }: HeaderProps) {
   ];
 
   return (
-    <header className="bg-white shadow-md border-b border-gray-200">
+    <header className="bg-card/80 backdrop-blur-md shadow-glow border-b border-border">
       <div className="container mx-auto px-4">
         {/* Single row: Logo, Tabs, and Connect Button */}
         <div className="flex items-center justify-between h-16 gap-8">
           {/* Logo/Title - Left */}
           <div className="flex items-center flex-shrink-0">
-            <h1 className="text-2xl font-bold text-gray-800">Simple DEX</h1>
+            <h1 className="text-2xl font-bold bg-gradient-silver bg-clip-text text-transparent">
+              Simple DEX
+            </h1>
           </div>
 
           {/* Navigation Tabs - Center */}
@@ -35,10 +37,10 @@ export function Header({ activeTab, setActiveTab }: HeaderProps) {
               <button
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 font-medium text-sm whitespace-nowrap transition-colors rounded-md ${
+                className={`px-4 py-2 font-medium text-sm whitespace-nowrap transition-all rounded-md ${
                   activeTab === tab.id
-                    ? 'text-indigo-600 bg-indigo-50'
-                    : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+                    ? 'text-primary-foreground bg-primary shadow-glow'
+                    : 'text-muted-foreground hover:text-foreground hover:bg-accent/50 hover:shadow-sm'
                 }`}
               >
                 {tab.label}

@@ -2,10 +2,14 @@
 'use client';
 
 import { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { Token, getAllTokens, searchTokens } from '../config/tokens';
 import { ethers } from 'ethers';
 import { formatNumber } from '../utils/formatNumber';
 import { useNetwork } from '@/hooks/useNetwork';
+import { Input } from '@/components/ui/input';
+import { Button } from '@/components/ui/button';
+import { ChevronDown, X } from 'lucide-react';
 
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)'];
 
@@ -20,7 +24,12 @@ export default function TokenSelector({ selectedToken, onSelect, excludeToken, s
   const [isOpen, setIsOpen] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [balances, setBalances] = useState<Record<string, string>>({});
+  const [mounted, setMounted] = useState(false);
   const { chainId } = useNetwork();
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const tokens = searchQuery
     ? searchTokens(searchQuery, chainId)
@@ -73,108 +82,122 @@ export default function TokenSelector({ selectedToken, onSelect, excludeToken, s
     setSearchQuery('');
   };
 
+  // Prevent body scroll when modal is open
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
+
   return (
     <div className="relative">
       {/* Selected Token Button */}
-      <button
+      <Button
         onClick={() => setIsOpen(!isOpen)}
-        className="flex items-center gap-2 bg-white px-4 py-2 rounded-xl font-semibold hover:bg-gray-50 transition border border-gray-200"
+        variant="outline"
+        className="flex items-center gap-2 bg-card px-4 py-2 rounded-xl font-semibold hover:bg-accent hover:border-primary/50 transition-all border-border"
       >
         {selectedToken ? (
           <>
             {selectedToken.logoURI ? (
               <img src={selectedToken.logoURI} alt={selectedToken.symbol} className="w-6 h-6 rounded-full" />
             ) : (
-              <div className="w-6 h-6 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
+              <div className="w-6 h-6 bg-gradient-silver rounded-full flex items-center justify-center text-white text-xs font-bold">
                 {selectedToken.symbol[0]}
               </div>
             )}
             <span>{selectedToken.symbol}</span>
           </>
         ) : (
-          <span className="text-gray-400">Select token</span>
+          <span className="text-muted-foreground">Select token</span>
         )}
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+        <ChevronDown className="w-4 h-4" />
+      </Button>
 
-      {/* Modal Overlay */}
-      {isOpen && (
-        <>
-          <div
-            className="fixed inset-0 bg-black bg-opacity-50 z-40"
-            onClick={() => setIsOpen(false)}
-          />
-
-          {/* Token List Modal - Centered */}
-          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl z-50 w-96 max-h-[500px] flex flex-col">
+      {/* Modal */}
+      {isOpen && mounted && typeof window !== 'undefined' && createPortal(
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/95"
+          onMouseDown={(e) => {
+            // Only close if clicking the backdrop (not the modal content)
+            if (e.target === e.currentTarget) {
+              setIsOpen(false);
+            }
+          }}
+        >
+          <div className="relative glass gradient-border rounded-2xl shadow-glow-lg w-full max-w-md max-h-[80vh] flex flex-col">
             {/* Header */}
-            <div className="p-4 border-b">
+            <div className="p-4 border-b border-border shrink-0">
               <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-bold">Select a token</h3>
-                <button
+                <h3 className="text-lg font-bold bg-gradient-silver bg-clip-text text-transparent">Select a token</h3>
+                <Button
                   onClick={() => setIsOpen(false)}
-                  className="text-gray-400 hover:text-gray-600"
+                  variant="ghost"
+                  size="icon"
+                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
                 >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
+                  <X className="w-5 h-5" />
+                </Button>
               </div>
-              
+
               {/* Search Input */}
-              <input
+              <Input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search name or paste address"
-                className="w-full px-4 py-2 border border-gray-200 rounded-xl focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                className="w-full"
                 autoFocus
               />
             </div>
 
             {/* Token List */}
-            <div className="flex-1 overflow-y-auto rounded-b-2xl">
+            <div className="flex-1 overflow-y-auto">
               {filteredTokens.length === 0 ? (
-                <div className="p-8 text-center text-gray-500">
+                <div className="p-8 text-center text-muted-foreground">
                   <p>No tokens found</p>
                 </div>
               ) : (
-                filteredTokens.map((token, index) => (
-                  <button
-                    key={token.address}
-                    onClick={() => handleSelect(token)}
-                    className={`w-full px-4 py-3 hover:bg-gray-50 transition flex items-center justify-between ${
-                      index === filteredTokens.length - 1 ? 'rounded-b-2xl' : ''
-                    }`}
-                  >
-                    <div className="flex items-center gap-3">
-                      {token.logoURI ? (
-                        <img src={token.logoURI} alt={token.symbol} className="w-10 h-10 rounded-full" />
-                      ) : (
-                        <div className="w-10 h-10 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white font-bold">
-                          {token.symbol[0]}
+                <div className="divide-y divide-border/50">
+                  {filteredTokens.map((token) => (
+                    <button
+                      key={token.address}
+                      onClick={() => handleSelect(token)}
+                      className="w-full px-4 py-3 hover:bg-accent/50 transition-all flex items-center justify-between"
+                    >
+                      <div className="flex items-center gap-3">
+                        {token.logoURI ? (
+                          <img src={token.logoURI} alt={token.symbol} className="w-10 h-10 rounded-full" />
+                        ) : (
+                          <div className="w-10 h-10 bg-gradient-silver rounded-full flex items-center justify-center text-white font-bold shadow-glow">
+                            {token.symbol[0]}
+                          </div>
+                        )}
+                        <div className="text-left">
+                          <div className="font-semibold text-foreground">{token.symbol}</div>
+                          <div className="text-xs text-muted-foreground">{token.name}</div>
+                        </div>
+                      </div>
+                      {balances[token.address] && parseFloat(balances[token.address]) > 0 && (
+                        <div className="text-right">
+                          <div className="font-medium text-primary">
+                            {formatNumber(balances[token.address])}
+                          </div>
                         </div>
                       )}
-                      <div className="text-left">
-                        <div className="font-semibold">{token.symbol}</div>
-                        <div className="text-xs text-gray-500">{token.name}</div>
-                      </div>
-                    </div>
-                    {balances[token.address] && parseFloat(balances[token.address]) > 0 && (
-                      <div className="text-right">
-                        <div className="font-medium">
-                          {formatNumber(balances[token.address])}
-                        </div>
-                      </div>
-                    )}
-                  </button>
-                ))
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           </div>
-        </>
+        </div>,
+        document.body
       )}
     </div>
   );

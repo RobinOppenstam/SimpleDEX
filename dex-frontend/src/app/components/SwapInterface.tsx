@@ -13,6 +13,10 @@ import { usePrices } from '../hooks/usePrices';
 import { findBestRoute, hasDirectPair, Route } from '../utils/routing';
 import { ROUTER_ABI, ERC20_ABI } from '../config/contracts';
 import { useNetwork } from '@/hooks/useNetwork';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Badge } from '@/components/ui/badge';
+import { ArrowDownUp, RefreshCw } from 'lucide-react';
 
 interface SwapInterfaceProps {
   signer: ethers.Signer;
@@ -342,30 +346,28 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
   return (
     <div className="space-y-4">
       {/* From Token */}
-      <div className="bg-gray-50 rounded-xl p-4">
+      <div className="bg-secondary/30 border border-border rounded-xl p-4 hover:border-primary/50 transition-colors">
         <div className="flex justify-between mb-2">
-          <label className="text-sm font-medium text-gray-600">From</label>
+          <label className="text-sm font-medium text-muted-foreground">From</label>
           {tokenIn && (
             <button
               onClick={loadBalances}
-              className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
               title="Click to refresh balance"
             >
               Balance: {formatNumber(balanceIn)}
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
+              <RefreshCw className="w-3 h-3" />
             </button>
           )}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            <input
+            <Input
               type="number"
               value={amountIn}
               onChange={(e) => setAmountIn(e.target.value)}
               placeholder="0.0"
-              className="w-full bg-transparent text-2xl font-semibold outline-none"
+              className="bg-transparent border-none text-2xl font-semibold h-auto p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             {tokenIn && amountIn && parseFloat(amountIn) > 0 && (
               <PriceDisplay
@@ -384,52 +386,52 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
           />
         </div>
         {tokenIn && (
-          <button
+          <Button
             onClick={() => setAmountIn(balanceIn)}
-            className="mt-2 text-sm text-indigo-600 hover:text-indigo-700 font-medium"
+            variant="ghost"
+            size="sm"
+            className="mt-2 text-primary hover:text-primary/80 h-auto p-0"
           >
             MAX
-          </button>
+          </Button>
         )}
       </div>
 
       {/* Switch Button */}
-      <div className="flex justify-center">
-        <button
+      <div className="flex justify-center -my-2 relative z-10">
+        <Button
           onClick={handleSwitchTokens}
-          className="bg-gray-100 rounded-full p-2 hover:bg-gray-200 transition"
+          variant="outline"
+          size="icon"
+          className="rounded-full bg-card hover:bg-accent border-2 border-border hover:border-primary/50 shadow-md hover:shadow-glow transition-all"
         >
-          <svg className="w-6 h-6 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-          </svg>
-        </button>
+          <ArrowDownUp className="w-4 h-4" />
+        </Button>
       </div>
 
       {/* To Token */}
-      <div className="bg-gray-50 rounded-xl p-4">
+      <div className="bg-secondary/30 border border-border rounded-xl p-4 hover:border-primary/50 transition-colors">
         <div className="flex justify-between mb-2">
-          <label className="text-sm font-medium text-gray-600">To</label>
+          <label className="text-sm font-medium text-muted-foreground">To</label>
           {tokenOut && (
             <button
               onClick={loadBalances}
-              className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+              className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
               title="Click to refresh balance"
             >
               Balance: {formatNumber(balanceOut)}
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-              </svg>
+              <RefreshCw className="w-3 h-3" />
             </button>
           )}
         </div>
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            <input
+            <Input
               type="number"
               value={amountOut}
               readOnly
               placeholder="0.0"
-              className="w-full bg-transparent text-2xl font-semibold outline-none"
+              className="bg-transparent border-none text-2xl font-semibold h-auto p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             {tokenOut && amountOut && parseFloat(amountOut) > 0 && (
               <PriceDisplay
@@ -454,53 +456,58 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
 
       {/* Swap Details */}
       {amountOut && parseFloat(amountOut) > 0 && tokenIn && tokenOut && (
-        <div className="bg-blue-50 rounded-lg p-3 text-sm space-y-1">
+        <div className="bg-primary/10 border border-primary/20 rounded-lg p-3 text-sm space-y-2">
           <div className="flex justify-between">
-            <span className="text-gray-600">Rate</span>
-            <span className="font-medium">
+            <span className="text-muted-foreground">Rate</span>
+            <span className="font-medium text-foreground">
               1 {tokenIn.symbol} = {formatNumber(parseFloat(amountOut) / parseFloat(amountIn))} {tokenOut.symbol}
             </span>
           </div>
           {priceImpact !== null && (
-            <div className="flex justify-between">
-              <span className="text-gray-600">Price Impact</span>
-              <span className={`font-medium ${priceImpact > 5 ? 'text-red-600' : 'text-green-600'}`}>
+            <div className="flex justify-between items-center">
+              <span className="text-muted-foreground">Price Impact</span>
+              <Badge variant={priceImpact > 5 ? 'destructive' : 'success'}>
                 {priceImpact.toFixed(2)}%
-              </span>
+              </Badge>
             </div>
           )}
           <div className="flex justify-between">
-            <span className="text-gray-600">Slippage Tolerance</span>
-            <span className="font-medium">5%</span>
+            <span className="text-muted-foreground">Slippage Tolerance</span>
+            <span className="font-medium text-foreground">5%</span>
           </div>
         </div>
       )}
 
       {/* Action Button */}
-      <div className="flex justify-center">
+      <div className="flex justify-center pt-2">
         {!tokenIn || !tokenOut ? (
-          <button
+          <Button
             disabled
-            className="w-[60%] bg-gray-300 text-white py-4 rounded-xl font-semibold cursor-not-allowed"
+            size="lg"
+            className="w-[60%]"
           >
             Select tokens
-          </button>
+          </Button>
         ) : needsApproval ? (
-          <button
+          <Button
             onClick={approveToken}
             disabled={loading || !amountIn || parseFloat(amountIn) <= 0}
-            className="w-[60%] bg-yellow-500 text-white py-4 rounded-xl font-semibold hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+            variant="secondary"
+            size="lg"
+            className="w-[60%] bg-yellow-500/20 text-yellow-400 border-yellow-500/50 hover:bg-yellow-500/30 hover:shadow-glow"
           >
             {loading ? 'Approving...' : `Approve ${tokenIn.symbol}`}
-          </button>
+          </Button>
         ) : (
-          <button
+          <Button
             onClick={handleSwap}
             disabled={loading || !amountIn || parseFloat(amountIn) <= 0 || !amountOut}
-            className="w-[60%] bg-indigo-600 text-white py-4 rounded-xl font-semibold hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+            variant="gradient"
+            size="lg"
+            className="w-[60%]"
           >
             {loading ? 'Swapping...' : 'Swap'}
-          </button>
+          </Button>
         )}
       </div>
 

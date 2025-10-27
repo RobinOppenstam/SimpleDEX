@@ -1,6 +1,8 @@
 'use client';
 
 import { useEffect } from 'react';
+import { Button } from '@/components/ui/button';
+import { X, ArrowRight, Plus, Check, Loader2, AlertCircle } from 'lucide-react';
 
 export type NotificationStatus = 'pending' | 'success' | 'error' | 'info';
 export type NotificationMode = 'swap' | 'approval' | 'addLiquidity' | 'removeLiquidity';
@@ -320,32 +322,32 @@ export default function NotificationModal({
   const getStatusColor = () => {
     switch (status) {
       case 'pending':
-        return 'border-indigo-200 bg-indigo-50';
+        return 'border-primary/30';
       case 'success':
-        return 'border-green-200 bg-green-50';
+        return 'border-green-500/30';
       case 'error':
-        return 'border-red-200 bg-red-50';
+        return 'border-destructive/30';
       case 'info':
-        return 'border-blue-200 bg-blue-50';
+        return 'border-blue-500/30';
     }
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black bg-opacity-50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70 backdrop-blur-md">
       <div
-        className={`relative w-full max-w-md bg-white rounded-2xl shadow-2xl border-2 ${getStatusColor()} p-6 transform transition-all`}
+        className={`relative w-full max-w-md glass gradient-border rounded-2xl shadow-glow-lg border-2 ${getStatusColor()} p-6 transform transition-all`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* Close button - only show for non-pending states */}
         {status !== 'pending' && (
-          <button
+          <Button
             onClick={onClose}
-            className="absolute top-4 right-4 text-gray-400 hover:text-gray-600 transition"
+            variant="ghost"
+            size="icon"
+            className="absolute top-4 right-4 h-8 w-8 text-muted-foreground hover:text-foreground"
           >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+            <X className="w-5 h-5" />
+          </Button>
         )}
 
         {/* Content */}
@@ -354,32 +356,35 @@ export default function NotificationModal({
           <div className="mb-4">{getStatusIcon()}</div>
 
           {/* Title */}
-          <h3 className="text-xl font-bold text-gray-900 mb-2">{title}</h3>
+          <h3 className="text-xl font-bold text-foreground mb-2">{title}</h3>
 
           {/* Message */}
-          <p className="text-gray-600 mb-4">{message}</p>
+          <p className="text-muted-foreground mb-4">{message}</p>
 
           {/* Transaction Hash */}
           {txHash && (
-            <div className="w-full bg-white rounded-lg p-3 border border-gray-200">
-              <p className="text-xs text-gray-500 mb-1">Transaction Hash</p>
-              <p className="text-xs font-mono text-gray-700 break-all">{txHash}</p>
+            <div className="w-full bg-secondary/30 rounded-lg p-3 border border-border">
+              <p className="text-xs text-muted-foreground mb-1">Transaction Hash</p>
+              <p className="text-xs font-mono text-primary break-all">{txHash}</p>
             </div>
           )}
 
           {/* Action Button */}
           {status !== 'pending' && (
-            <button
+            <Button
               onClick={onClose}
-              className="mt-6 w-full bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition font-semibold"
+              variant="gradient"
+              className="mt-6 w-full"
+              size="lg"
             >
               Close
-            </button>
+            </Button>
           )}
 
           {/* Loading text for pending */}
           {status === 'pending' && (
-            <p className="mt-4 text-sm text-gray-500">
+            <p className="mt-4 text-sm text-muted-foreground flex items-center gap-2">
+              <Loader2 className="w-4 h-4 animate-spin" />
               Please wait, do not close this window...
             </p>
           )}

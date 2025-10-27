@@ -6,6 +6,9 @@ import { ethers } from 'ethers';
 import { Token, getAllTokens } from '../config/tokens';
 import NotificationModal, { NotificationStatus } from './NotificationModal';
 import { useNetwork } from '@/hooks/useNetwork';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { RefreshCw, AlertTriangle, Info } from 'lucide-react';
 
 // TokenFaucet ABI - only the functions we need
 const FAUCET_ABI = [
@@ -289,14 +292,12 @@ export default function Faucet({ signer }: FaucetProps) {
   if (!FAUCET_ADDRESS || FAUCET_ADDRESS === '0x0000000000000000000000000000000000000000') {
     return (
       <div className="max-w-4xl mx-auto">
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+        <div className="glass gradient-border rounded-xl p-6 border-2 border-destructive/30">
           <div className="flex items-start gap-3">
-            <svg className="w-6 h-6 text-red-600 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-            </svg>
+            <AlertTriangle className="w-6 h-6 text-destructive mt-0.5" />
             <div>
-              <h4 className="font-semibold text-red-900 mb-1">Faucet Not Configured</h4>
-              <p className="text-sm text-red-800">
+              <h4 className="font-semibold text-foreground mb-1">Faucet Not Configured</h4>
+              <p className="text-sm text-muted-foreground">
                 The faucet address is not configured. Please set NEXT_PUBLIC_FAUCET_ADDRESS in your environment variables.
               </p>
             </div>
@@ -310,30 +311,31 @@ export default function Faucet({ signer }: FaucetProps) {
     <div className="space-y-6">
       {/* Header */}
       <div className="text-center mb-8">
-        <h2 className="text-3xl font-bold text-gray-800 mb-2">Token Faucet</h2>
-        <p className="text-gray-600">Get free test tokens for trading on the DEX</p>
-        <p className="text-sm text-gray-500 mt-2">
+        <h2 className="text-3xl font-bold bg-gradient-silver bg-clip-text text-transparent mb-2">Token Faucet</h2>
+        <p className="text-muted-foreground">Get free test tokens for trading on the DEX</p>
+        <p className="text-sm text-muted-foreground mt-2">
           24-hour cooldown • Fixed amounts per token
         </p>
       </div>
 
       {/* Claim All Button */}
       {claimableCount > 0 && (
-        <div className="bg-gradient-to-r from-indigo-500 to-purple-600 rounded-xl shadow-lg p-6 text-white">
+        <div className="glass gradient-border rounded-xl shadow-glow-lg p-6">
           <div className="flex items-center justify-between">
             <div>
-              <h3 className="text-xl font-bold mb-1">Claim All Available Tokens</h3>
-              <p className="text-indigo-100">
+              <h3 className="text-xl font-bold text-foreground mb-1">Claim All Available Tokens</h3>
+              <p className="text-muted-foreground">
                 {claimableCount} token{claimableCount > 1 ? 's' : ''} ready to claim
               </p>
             </div>
-            <button
+            <Button
               onClick={handleClaimAll}
               disabled={loading}
-              className="bg-white text-indigo-600 hover:bg-indigo-50 px-6 py-3 rounded-lg font-semibold transition disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="gradient"
+              size="lg"
             >
               {loading ? 'Claiming...' : `Claim All (${claimableCount})`}
-            </button>
+            </Button>
           </div>
         </div>
       )}
@@ -347,8 +349,8 @@ export default function Faucet({ signer }: FaucetProps) {
           return (
             <div
               key={token.address}
-              className={`bg-white rounded-xl shadow-md hover:shadow-lg transition-shadow p-6 border-2 ${
-                canClaim ? 'border-green-200' : 'border-gray-100'
+              className={`glass gradient-border rounded-xl shadow-glow hover:shadow-glow-lg transition-all p-6 ${
+                canClaim ? 'border-2 border-primary/50' : ''
               }`}
             >
               {/* Token Header */}
@@ -360,26 +362,26 @@ export default function Faucet({ signer }: FaucetProps) {
                     className="w-12 h-12 rounded-full"
                   />
                 ) : (
-                  <div className="w-12 h-12 rounded-full bg-gradient-to-br from-indigo-400 to-indigo-600 flex items-center justify-center text-white font-bold">
+                  <div className="w-12 h-12 rounded-full bg-gradient-silver flex items-center justify-center text-white font-bold">
                     {token.symbol.slice(0, 2)}
                   </div>
                 )}
                 <div className="flex-1">
-                  <h3 className="text-xl font-bold text-gray-800">{token.symbol}</h3>
-                  <p className="text-sm text-gray-500">{token.name}</p>
+                  <h3 className="text-xl font-bold text-foreground">{token.symbol}</h3>
+                  <p className="text-sm text-muted-foreground">{token.name}</p>
                 </div>
                 {canClaim && (
-                  <div className="bg-green-100 text-green-800 px-3 py-1 rounded-full text-xs font-semibold">
+                  <Badge variant="success" className="text-xs">
                     Ready
-                  </div>
+                  </Badge>
                 )}
               </div>
 
               {/* Drip Amount */}
               {info && (
-                <div className="mb-3 bg-indigo-50 rounded-lg p-3">
-                  <p className="text-xs text-indigo-600 mb-1">Drip Amount</p>
-                  <p className="text-lg font-bold text-indigo-900">
+                <div className="mb-3 bg-primary/10 rounded-lg p-3 border border-primary/20">
+                  <p className="text-xs text-primary mb-1">Drip Amount</p>
+                  <p className="text-lg font-bold text-foreground">
                     {info.dripAmount} {token.symbol}
                   </p>
                 </div>
@@ -387,9 +389,9 @@ export default function Faucet({ signer }: FaucetProps) {
 
               {/* Cooldown Status */}
               {info && !canClaim && (
-                <div className="mb-4 bg-orange-50 rounded-lg p-3">
-                  <p className="text-xs text-orange-600 mb-1">Cooldown</p>
-                  <p className="text-sm font-semibold text-orange-900">
+                <div className="mb-4 bg-secondary/50 rounded-lg p-3 border border-border">
+                  <p className="text-xs text-muted-foreground mb-1">Cooldown</p>
+                  <p className="text-sm font-semibold text-foreground">
                     {formatTimeRemaining(info.timeRemaining)}
                   </p>
                 </div>
@@ -397,16 +399,11 @@ export default function Faucet({ signer }: FaucetProps) {
 
               {/* Claim Button */}
               <div className="flex justify-center">
-                <button
+                <Button
                   onClick={() => handleClaim(token)}
                   disabled={loading || !canClaim || !info}
-                  className={`w-[60%] py-3 rounded-lg font-semibold transition ${
-                    loading && selectedToken?.address === token.address
-                      ? 'bg-gray-400 cursor-not-allowed text-white'
-                      : canClaim
-                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                      : 'bg-gray-300 cursor-not-allowed text-gray-600'
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                  variant={canClaim ? 'gradient' : 'secondary'}
+                  className="w-[60%]"
                 >
                   {loading && selectedToken?.address === token.address ? (
                     <span className="flex items-center justify-center gap-2">
@@ -418,7 +415,7 @@ export default function Faucet({ signer }: FaucetProps) {
                   ) : (
                     'On Cooldown'
                   )}
-                </button>
+                </Button>
               </div>
             </div>
           );
@@ -427,51 +424,29 @@ export default function Faucet({ signer }: FaucetProps) {
 
       {/* Refresh Button */}
       <div className="text-center">
-        <button
+        <Button
           onClick={fetchDripInfo}
           disabled={refreshing}
-          className="text-indigo-600 hover:text-indigo-700 font-semibold text-sm flex items-center gap-2 mx-auto disabled:opacity-50"
+          variant="outline"
+          size="sm"
+          className="gap-2"
         >
-          <svg
-            className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`}
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"
-            />
-          </svg>
+          <RefreshCw className={`w-4 h-4 ${refreshing ? 'animate-spin' : ''}`} />
           {refreshing ? 'Refreshing...' : 'Refresh Status'}
-        </button>
+        </Button>
       </div>
 
       {/* Info Box */}
-      <div className="bg-blue-50 border border-blue-200 rounded-xl p-6 mt-8">
+      <div className="glass gradient-border rounded-xl p-6 mt-8">
         <div className="flex items-start gap-3">
-          <svg
-            className="w-6 h-6 text-blue-600 mt-0.5"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              strokeWidth={2}
-              d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
-            />
-          </svg>
+          <Info className="w-6 h-6 text-primary mt-0.5" />
           <div>
-            <h4 className="font-semibold text-blue-900 mb-1">About the Faucet</h4>
-            <p className="text-sm text-blue-800">
+            <h4 className="font-semibold text-foreground mb-1">About the Faucet</h4>
+            <p className="text-sm text-muted-foreground">
               This faucet provides free test tokens for use on the DEX. These tokens have no real
               value and are only for testing purposes.
             </p>
-            <ul className="list-disc list-inside text-sm text-blue-800 mt-2 space-y-1">
+            <ul className="list-disc list-inside text-sm text-muted-foreground mt-2 space-y-1">
               <li>Each token has a fixed drip amount</li>
               <li>24-hour cooldown between claims per token</li>
               <li>You can claim multiple tokens at once</li>

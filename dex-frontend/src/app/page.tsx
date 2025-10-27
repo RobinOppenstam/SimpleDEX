@@ -16,6 +16,7 @@ import Analytics from '@/app/components/Analytics';
 import Market from '@/app/components/Market';
 import { useNetwork } from '@/hooks/useNetwork';
 import { Token } from '@/app/config/tokens';
+import { Card } from '@/components/ui/card';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'positions' | 'history' | 'faucet' | 'analytics' | 'market'>('swap');
@@ -54,7 +55,7 @@ export default function Home() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 to-indigo-100">
+    <div className="min-h-screen bg-gradient-dark">
       {/* Header Navbar with Tabs */}
       <Header activeTab={activeTab} setActiveTab={setActiveTab} />
 
@@ -64,7 +65,7 @@ export default function Home() {
         {activeTab === 'swap' && (
           <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
             <div className="w-full max-w-lg">
-              <div className="bg-white rounded-2xl shadow-lg p-6">
+              <Card className="gradient-border p-6">
                 {signer && provider && CONTRACTS.ROUTER ? (
                   <SwapInterface
                     signer={signer}
@@ -75,12 +76,12 @@ export default function Home() {
                     }}
                   />
                 ) : (
-                  <div className="text-center p-8 text-gray-500">
+                  <div className="text-center p-8 text-muted-foreground">
                     <p>Network configuration not loaded. Please ensure you're connected to a supported network (Anvil or Sepolia).</p>
                     <p className="mt-2 text-sm">Connected chain ID: {network?.chainId || 'unknown'}</p>
                   </div>
                 )}
-              </div>
+              </Card>
             </div>
           </div>
         )}
@@ -89,7 +90,7 @@ export default function Home() {
         {activeTab === 'liquidity' && (
           <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
             <div className="w-full max-w-lg">
-              <div className="bg-white rounded-2xl shadow-lg p-6">
+              <Card className="gradient-border p-6">
                 {signer && CONTRACTS.ROUTER ? (
                   <LiquidityInterface
                     signer={signer}
@@ -102,12 +103,12 @@ export default function Home() {
                     initialTab={liquidityAction}
                   />
                 ) : (
-                  <div className="text-center p-8 text-gray-500">
+                  <div className="text-center p-8 text-muted-foreground">
                     <p>Network configuration not loaded. Please ensure you're connected to a supported network (Anvil or Sepolia).</p>
                     <p className="mt-2 text-sm">Connected chain ID: {network?.chainId || 'unknown'}</p>
                   </div>
                 )}
-              </div>
+              </Card>
             </div>
           </div>
         )}
@@ -115,7 +116,7 @@ export default function Home() {
         {/* Other tabs - full width */}
         {activeTab !== 'swap' && activeTab !== 'liquidity' && (
           <div className="max-w-7xl mx-auto">
-            <div className="bg-white rounded-2xl shadow-lg p-6">
+            <Card className="gradient-border p-6">
               {/* Tab Content */}
               {activeTab === 'positions' && signer && (
                 <LPPositions
@@ -136,7 +137,7 @@ export default function Home() {
               {activeTab === 'market' && provider && (
                 <Market provider={provider} />
               )}
-            </div>
+            </Card>
           </div>
         )}
 

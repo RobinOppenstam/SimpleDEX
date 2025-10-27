@@ -9,6 +9,10 @@ import LPTokenIcon from './LPTokenIcon';
 import { Token, getTokensForNetwork, SUGGESTED_PAIRS } from '../config/tokens';
 import { formatNumber } from '../utils/formatNumber';
 import { useNetwork } from '@/hooks/useNetwork';
+import { Button } from '@/components/ui/button';
+import { Input } from '@/components/ui/input';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
+import { ArrowDownUp, Plus, Minus } from 'lucide-react';
 
 const ROUTER_ABI = [
   'function addLiquidity(address tokenA, address tokenB, uint amountADesired, uint amountBDesired, uint amountAMin, uint amountBMin, address to, uint deadline) external returns (uint amountA, uint amountB, uint liquidity)',
@@ -590,49 +594,36 @@ export default function LiquidityInterface({
   };
 
   return (
-    <div className="space-y-6">
+    <Tabs value={liquidityMode} onValueChange={(value) => setLiquidityMode(value as 'add' | 'remove')} className="w-full">
       {/* Liquidity Mode Tabs */}
-      <div className="flex gap-2 border-b border-gray-200 justify-center">
-        <button
-          onClick={() => setLiquidityMode('add')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            liquidityMode === 'add'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
+      <TabsList className="grid w-full grid-cols-2 mb-6">
+        <TabsTrigger value="add" className="flex items-center gap-2">
+          <Plus className="w-4 h-4" />
           Add Liquidity
-        </button>
-        <button
-          onClick={() => setLiquidityMode('remove')}
-          className={`px-4 py-2 font-medium transition-colors ${
-            liquidityMode === 'remove'
-              ? 'text-indigo-600 border-b-2 border-indigo-600'
-              : 'text-gray-600 hover:text-gray-900'
-          }`}
-        >
+        </TabsTrigger>
+        <TabsTrigger value="remove" className="flex items-center gap-2">
+          <Minus className="w-4 h-4" />
           Remove Liquidity
-        </button>
-      </div>
+        </TabsTrigger>
+      </TabsList>
 
       {/* Add Liquidity Section */}
-      {liquidityMode === 'add' && (
-      <div>
+      <TabsContent value="add" className="space-y-4 mt-0">
 
         <div className="space-y-4">
           {/* First Token Input */}
-          <div className="bg-gray-50 rounded-xl p-4">
+          <div className="bg-secondary/30 border border-border rounded-xl p-4 hover:border-primary/50 transition-colors">
             <div className="flex justify-between mb-2">
-              <label className="text-sm font-medium text-gray-600">{tokenA?.symbol || 'Select token'}</label>
-              <span className="text-sm text-gray-500">Balance: {formatNumber(balanceA)}</span>
+              <label className="text-sm font-medium text-muted-foreground">{tokenA?.symbol || 'Select token'}</label>
+              <span className="text-sm text-muted-foreground">Balance: {formatNumber(balanceA)}</span>
             </div>
             <div className="flex items-center gap-3">
-              <input
+              <Input
                 type="number"
                 value={amountA}
                 onChange={(e) => handleAmountAChange(e.target.value)}
                 placeholder="0.0"
-                className="flex-1 bg-transparent text-xl font-semibold outline-none"
+                className="flex-1 bg-transparent border-none text-xl font-semibold h-auto p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               <TokenSelector
                 selectedToken={tokenA}
@@ -713,12 +704,10 @@ export default function LiquidityInterface({
             )}
           </div>
         </div>
-      </div>
-      )}
+      </TabsContent>
 
       {/* Remove Liquidity Section */}
-      {liquidityMode === 'remove' && (
-      <div>
+      <TabsContent value="remove" className="space-y-4 mt-0">
         
         <div className="space-y-4">
           <div className="bg-gray-50 rounded-xl p-4">
@@ -849,8 +838,7 @@ export default function LiquidityInterface({
             </button>
           </div>
         </div>
-      </div>
-      )}
+      </TabsContent>
 
       {/* Notification Modal */}
       <NotificationModal
@@ -866,6 +854,6 @@ export default function LiquidityInterface({
         mode={notificationMode}
         onClose={() => setNotificationOpen(false)}
       />
-    </div>
+    </Tabs>
   );
 }

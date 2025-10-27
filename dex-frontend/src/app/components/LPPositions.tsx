@@ -8,6 +8,9 @@ import { formatNumber, formatPercent } from '../utils/formatNumber';
 import LPTokenIcon from './LPTokenIcon';
 import { useNetwork } from '@/hooks/useNetwork';
 import { calculateAPRForPools } from '../utils/aprCalculator';
+import { Button } from '@/components/ui/button';
+import { Badge } from '@/components/ui/badge';
+import { RefreshCw } from 'lucide-react';
 
 const FACTORY_ABI = [
   'function getPair(address tokenA, address tokenB) external view returns (address pair)',
@@ -204,7 +207,7 @@ export default function LPPositions({ signer, contracts, onManageLiquidity }: LP
         {positions.map((position) => (
           <div
             key={position.pairAddress}
-            className="bg-white border border-gray-200 rounded-xl p-6 hover:shadow-lg transition-shadow"
+            className="glass gradient-border rounded-xl p-6 hover:shadow-glow transition-all"
           >
             {/* Header */}
             <div className="flex justify-between items-start mb-4">
@@ -217,43 +220,47 @@ export default function LPPositions({ signer, contracts, onManageLiquidity }: LP
                   size="md"
                 />
                 <div>
-                  <h3 className="text-lg font-bold">
+                  <h3 className="text-lg font-bold text-foreground">
                     {position.tokenA.symbol}/{position.tokenB.symbol}
                   </h3>
                 </div>
               </div>
               <div className="text-right">
-                <p className="text-xs text-gray-500">Pool Share</p>
-                <p className="text-lg font-bold text-indigo-600">{formatPercent(position.poolShare)}</p>
+                <p className="text-xs text-muted-foreground">Pool Share</p>
+                <Badge variant="default" className="mt-1">{formatPercent(position.poolShare)}</Badge>
               </div>
             </div>
 
             {/* APR and LP Token Balance */}
-            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
+            <div className="grid grid-cols-2 gap-4 pt-4 border-t border-border">
               <div>
-                <p className="text-xs text-gray-500 mb-1">APR</p>
-                <p className="text-lg font-semibold text-green-600">{position.apr.toFixed(2)}%</p>
+                <p className="text-xs text-muted-foreground mb-1">APR</p>
+                <Badge variant="success" className="text-lg px-2 py-1">{position.apr.toFixed(2)}%</Badge>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">LP Token Balance</p>
-                <p className="text-lg font-semibold">{formatNumber(position.lpBalance)}</p>
+                <p className="text-xs text-muted-foreground mb-1">LP Token Balance</p>
+                <p className="text-lg font-semibold text-foreground">{formatNumber(position.lpBalance)}</p>
               </div>
             </div>
 
             {/* Action Buttons */}
-            <div className="mt-4 pt-4 border-t border-gray-100 flex gap-3">
-              <button
+            <div className="mt-4 pt-4 border-t border-border flex gap-3">
+              <Button
                 onClick={() => onManageLiquidity?.(position.tokenA, position.tokenB, 'add')}
-                className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition"
+                variant="gradient"
+                size="sm"
+                className="flex-1"
               >
                 Add Liquidity
-              </button>
-              <button
+              </Button>
+              <Button
                 onClick={() => onManageLiquidity?.(position.tokenA, position.tokenB, 'remove')}
-                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-gray-700 transition"
+                variant="secondary"
+                size="sm"
+                className="flex-1"
               >
                 Remove Liquidity
-              </button>
+              </Button>
             </div>
           </div>
         ))}
