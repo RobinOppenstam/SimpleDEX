@@ -169,7 +169,7 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
         </button>
       </div>
 
-      <div className="grid gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {positions.map((position) => (
           <div
             key={position.pairAddress}
@@ -189,7 +189,6 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
                   <h3 className="text-lg font-bold">
                     {position.tokenA.symbol}/{position.tokenB.symbol}
                   </h3>
-                  <p className="text-sm text-gray-500">{position.tokenA.name} / {position.tokenB.name}</p>
                 </div>
               </div>
               <div className="text-right">
@@ -225,12 +224,6 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
                 <span>{formatNumber(position.reserveA)} {position.tokenA.symbol}</span>
                 <span>{formatNumber(position.reserveB)} {position.tokenB.symbol}</span>
               </div>
-            </div>
-
-            {/* Pair Address */}
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-500 mb-1">Pair Contract</p>
-              <p className="text-xs font-mono text-gray-600 break-all">{position.pairAddress}</p>
             </div>
           </div>
         ))}

@@ -14,7 +14,7 @@ interface MarketProps {
 export default function Market({ provider }: MarketProps) {
   const { chainId } = useNetwork();
   const TOKENS = getTokensForNetwork(chainId);
-  const { prices, loading, lastUpdate, refreshPrices } = usePrices(provider);
+  const { prices, priceChanges1h, priceChanges24h, loading, lastUpdate, refreshPrices } = usePrices(provider);
 
   const formatUSD = (value: number): string => {
     if (value === 0) return '$0.00';
@@ -27,14 +27,19 @@ export default function Market({ provider }: MarketProps) {
     }).format(value);
   };
 
-  const formatLastUpdate = (timestamp: number | null): string => {
+  const formatLastUpdate = (timestamp: Date | null): string => {
     if (!timestamp) return 'Never';
-    const seconds = Math.floor((Date.now() - timestamp) / 1000);
+    const seconds = Math.floor((Date.now() - timestamp.getTime()) / 1000);
     if (seconds < 60) return `${seconds}s ago`;
     const minutes = Math.floor(seconds / 60);
     if (minutes < 60) return `${minutes}m ago`;
     const hours = Math.floor(minutes / 60);
     return `${hours}h ago`;
+  };
+
+  const formatPriceChange = (change: number): string => {
+    const sign = change >= 0 ? '+' : '';
+    return `${sign}${change.toFixed(2)}%`;
   };
 
   // Create array of tokens with prices for sorting
@@ -43,6 +48,8 @@ export default function Market({ provider }: MarketProps) {
     name: token.name,
     logoURI: token.logoURI,
     price: prices[symbol] || 0,
+    priceChange1h: priceChanges1h[symbol] || 0,
+    priceChange24h: priceChanges24h[symbol] || 0,
   }));
 
   // Sort by price descending
@@ -112,8 +119,13 @@ export default function Market({ provider }: MarketProps) {
                 {formatUSD(token.price)}
               </div>
               {token.price > 0 && (
-                <div className="text-xs text-gray-500">
-                  Chainlink Oracle
+                <div className="flex gap-3 text-xs font-medium justify-end mt-1">
+                  <div className={token.priceChange1h >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    1h: {formatPriceChange(token.priceChange1h)}
+                  </div>
+                  <div className={token.priceChange24h >= 0 ? 'text-green-600' : 'text-red-600'}>
+                    24h: {formatPriceChange(token.priceChange24h)}
+                  </div>
                 </div>
               )}
             </div>

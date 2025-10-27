@@ -5,7 +5,8 @@ import { useState, useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
 import TokenSelector from './TokenSelector';
 import NotificationModal, { NotificationStatus } from './NotificationModal';
-import { Token, getTokensForNetwork } from '../config/tokens';
+import LPTokenIcon from './LPTokenIcon';
+import { Token, getTokensForNetwork, SUGGESTED_PAIRS } from '../config/tokens';
 import { formatNumber } from '../utils/formatNumber';
 import { useNetwork } from '@/hooks/useNetwork';
 
@@ -35,8 +36,6 @@ interface LiquidityInterfaceProps {
   contracts: {
     ROUTER: string;
     FACTORY: string;
-    TOKEN_A: string;
-    TOKEN_B: string;
   };
   onTokenChange?: (tokenA: Token | null, tokenB: Token | null) => void;
 }
@@ -58,6 +57,10 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
   const [reserveA, setReserveA] = useState<bigint>(BigInt(0));
   const [reserveB, setReserveB] = useState<bigint>(BigInt(0));
   const [isFirstLiquidity, setIsFirstLiquidity] = useState(true);
+  const [needsApprovalA, setNeedsApprovalA] = useState(false);
+  const [needsApprovalB, setNeedsApprovalB] = useState(false);
+  const [lpSelectorOpen, setLpSelectorOpen] = useState(false);
+  const [liquidityMode, setLiquidityMode] = useState<'add' | 'remove'>('add');
 
   // Notification modal state
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -132,6 +135,26 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
       console.log('[LiquidityInterface] Skipping load - tokens not ready');
     }
   }, [signer, tokenA, tokenB, chainId]);
+
+  // Check allowances when amounts change
+  useEffect(() => {
+    if (tokenA && tokenB && amountA && amountB) {
+      checkAllowances();
+    }
+  }, [amountA, amountB, tokenA, tokenB]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      const target = event.target as HTMLElement;
+      if (lpSelectorOpen && !target.closest('.lp-selector-container')) {
+        setLpSelectorOpen(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [lpSelectorOpen]);
 
   const loadBalances = async () => {
     if (!tokenA || !tokenB) {
@@ -254,6 +277,42 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
     setAmountB('');
   };
 
+  const handleLpPairSelect = (pairSymbols: [string, string]) => {
+    const [symbolA, symbolB] = pairSymbols;
+    const newTokenA = TOKENS[symbolA];
+    const newTokenB = TOKENS[symbolB];
+
+    if (newTokenA && newTokenB) {
+      setTokenA(newTokenA);
+      setTokenB(newTokenB);
+      setAmountA('');
+      setAmountB('');
+      setRemoveLiquidityAmount('');
+      setLpSelectorOpen(false);
+    }
+  };
+
+  const checkAllowances = async () => {
+    if (!tokenA || !tokenB || !amountA || !amountB) return;
+
+    try {
+      const address = await signer.getAddress();
+      const tokenAContract = new ethers.Contract(tokenA.address, ERC20_ABI, signer);
+      const tokenBContract = new ethers.Contract(tokenB.address, ERC20_ABI, signer);
+
+      const allowanceA = await tokenAContract.allowance(address, contracts.ROUTER);
+      const allowanceB = await tokenBContract.allowance(address, contracts.ROUTER);
+
+      const amountAWei = ethers.parseUnits(amountA, tokenA.decimals);
+      const amountBWei = ethers.parseUnits(amountB, tokenB.decimals);
+
+      setNeedsApprovalA(allowanceA < amountAWei);
+      setNeedsApprovalB(allowanceB < amountBWei);
+    } catch (error) {
+      console.error('Error checking allowances:', error);
+    }
+  };
+
   const approveTokens = async () => {
     if (!tokenA || !tokenB) return;
 
@@ -281,6 +340,7 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
 
       const txA = await tokenAContract.approve(contracts.ROUTER, amountAWei);
       await txA.wait();
+      setNeedsApprovalA(false);
 
       // Show success for Token A and start Token B approval
       showNotification(
@@ -313,6 +373,7 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
 
       const txB = await tokenBContract.approve(contracts.ROUTER, amountBWei);
       await txB.wait();
+      setNeedsApprovalB(false);
 
       // Show final success
       showNotification(
@@ -326,6 +387,9 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
         undefined,
         'approval'
       );
+
+      // Recheck allowances after approval
+      await checkAllowances();
     } catch (error) {
       console.error('Error approving tokens:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -389,6 +453,9 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
       setAmountB('');
       loadBalances();
       loadReserves();
+      // Reset approval states
+      setNeedsApprovalA(false);
+      setNeedsApprovalB(false);
     } catch (error) {
       console.error('Error adding liquidity:', error);
       const errorMessage = error instanceof Error ? error.message : 'Unknown error occurred';
@@ -472,9 +539,33 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
 
   return (
     <div className="space-y-6">
+      {/* Liquidity Mode Tabs */}
+      <div className="flex gap-2 border-b border-gray-200 justify-center">
+        <button
+          onClick={() => setLiquidityMode('add')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            liquidityMode === 'add'
+              ? 'text-indigo-600 border-b-2 border-indigo-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Add Liquidity
+        </button>
+        <button
+          onClick={() => setLiquidityMode('remove')}
+          className={`px-4 py-2 font-medium transition-colors ${
+            liquidityMode === 'remove'
+              ? 'text-indigo-600 border-b-2 border-indigo-600'
+              : 'text-gray-600 hover:text-gray-900'
+          }`}
+        >
+          Remove Liquidity
+        </button>
+      </div>
+
       {/* Add Liquidity Section */}
+      {liquidityMode === 'add' && (
       <div>
-        <h3 className="text-lg font-semibold mb-4">Add Liquidity</h3>
 
         <div className="space-y-4">
           {/* First Token Input */}
@@ -542,32 +633,38 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
             )}
           </div>
 
-          {/* Add Liquidity Buttons */}
-          <div className="space-y-2">
+          {/* Add Liquidity Button */}
+          {!tokenA || !tokenB ? (
+            <button
+              disabled
+              className="w-full bg-gray-300 text-white py-3 rounded-xl font-semibold cursor-not-allowed"
+            >
+              Select tokens
+            </button>
+          ) : needsApprovalA || needsApprovalB ? (
             <button
               onClick={approveTokens}
               disabled={loading || !amountA || !amountB}
               className="w-full bg-yellow-500 text-white py-3 rounded-xl font-semibold hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
             >
-              {loading ? 'Processing...' : 'Approve Tokens'}
+              {loading ? 'Approving...' : `Approve ${needsApprovalA && needsApprovalB ? 'Tokens' : needsApprovalA ? tokenA.symbol : tokenB.symbol}`}
             </button>
+          ) : (
             <button
               onClick={handleAddLiquidity}
               disabled={loading || !amountA || !amountB}
               className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
             >
-              {loading ? 'Adding...' : 'Add Liquidity'}
+              {loading ? 'Adding Liquidity...' : 'Add Liquidity'}
             </button>
-          </div>
+          )}
         </div>
       </div>
-
-      {/* Divider */}
-      <div className="border-t pt-6"></div>
+      )}
 
       {/* Remove Liquidity Section */}
+      {liquidityMode === 'remove' && (
       <div>
-        <h3 className="text-lg font-semibold mb-4">Remove Liquidity</h3>
         
         <div className="space-y-4">
           <div className="bg-gray-50 rounded-xl p-4">
@@ -592,16 +689,61 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
                 placeholder="0.0"
                 className="flex-1 bg-transparent text-xl font-semibold outline-none"
               />
-              <div className="bg-white px-3 py-1 rounded-lg font-semibold text-sm">
-                LP
+              <div className="relative lp-selector-container -ml-6">
+                <button
+                  onClick={() => setLpSelectorOpen(!lpSelectorOpen)}
+                  className="bg-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-gray-50 transition-colors border border-gray-200"
+                >
+                  {tokenA && tokenB ? (
+                    <>
+                      <LPTokenIcon
+                        token0LogoURI={tokenA.logoURI}
+                        token1LogoURI={tokenB.logoURI}
+                        token0Symbol={tokenA.symbol}
+                        token1Symbol={tokenB.symbol}
+                        size="sm"
+                      />
+                      <span className="font-semibold text-sm">{tokenA.symbol}/{tokenB.symbol}</span>
+                    </>
+                  ) : (
+                    <span className="font-semibold text-sm">LP</span>
+                  )}
+                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                  </svg>
+                </button>
+
+                {/* Dropdown Menu */}
+                {lpSelectorOpen && (
+                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 z-10 max-h-60 overflow-y-auto">
+                    {SUGGESTED_PAIRS.map((pair) => {
+                      const [symbolA, symbolB] = pair;
+                      const pairTokenA = TOKENS[symbolA];
+                      const pairTokenB = TOKENS[symbolB];
+
+                      if (!pairTokenA || !pairTokenB) return null;
+
+                      return (
+                        <button
+                          key={`${symbolA}-${symbolB}`}
+                          onClick={() => handleLpPairSelect(pair)}
+                          className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors first:rounded-t-xl last:rounded-b-xl"
+                        >
+                          <LPTokenIcon
+                            token0LogoURI={pairTokenA.logoURI}
+                            token1LogoURI={pairTokenB.logoURI}
+                            token0Symbol={pairTokenA.symbol}
+                            token1Symbol={pairTokenB.symbol}
+                            size="sm"
+                          />
+                          <span className="font-medium text-sm">{pairTokenA.symbol}/{pairTokenB.symbol}</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                )}
               </div>
             </div>
-            <button
-              onClick={() => setRemoveLiquidityAmount(lpBalance)}
-              className="mt-2 text-sm text-indigo-600 hover:text-indigo-700"
-            >
-              MAX
-            </button>
           </div>
 
           <button
@@ -613,6 +755,7 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
           </button>
         </div>
       </div>
+      )}
 
       {/* Notification Modal */}
       <NotificationModal
