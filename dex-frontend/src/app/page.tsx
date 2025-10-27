@@ -15,12 +15,15 @@ import Faucet from '@/app/components/Faucet';
 import Analytics from '@/app/components/Analytics';
 import Market from '@/app/components/Market';
 import { useNetwork } from '@/hooks/useNetwork';
-// import { Token } from '@/app/config/tokens';
+import { Token } from '@/app/config/tokens';
 
 export default function Home() {
   const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'positions' | 'history' | 'faucet' | 'analytics' | 'market'>('swap');
-  // const [selectedTokenA, setSelectedTokenA] = useState<Token | null>(null);
-  // const [selectedTokenB, setSelectedTokenB] = useState<Token | null>(null);
+  const [liquidityAction, setLiquidityAction] = useState<'add' | 'remove'>('add');
+  const [preSelectedTokens, setPreSelectedTokens] = useState<{ tokenA: Token | null; tokenB: Token | null }>({
+    tokenA: null,
+    tokenB: null,
+  });
 
   // Get network configuration
   const { network } = useNetwork();
@@ -41,6 +44,13 @@ export default function Home() {
   const CONTRACTS = {
     ROUTER: network?.contracts.router || '',
     FACTORY: network?.contracts.factory || '',
+  };
+
+  // Handle liquidity management from LP Positions
+  const handleManageLiquidity = (tokenA: Token, tokenB: Token, action: 'add' | 'remove') => {
+    setPreSelectedTokens({ tokenA, tokenB });
+    setLiquidityAction(action);
+    setActiveTab('liquidity');
   };
 
   return (
@@ -87,6 +97,9 @@ export default function Home() {
                     onTokenChange={() => {
                       // Token change handler removed (PoolInfo hidden)
                     }}
+                    initialTokenA={preSelectedTokens.tokenA}
+                    initialTokenB={preSelectedTokens.tokenB}
+                    initialTab={liquidityAction}
                   />
                 ) : (
                   <div className="text-center p-8 text-gray-500">
@@ -105,7 +118,11 @@ export default function Home() {
             <div className="bg-white rounded-2xl shadow-lg p-6">
               {/* Tab Content */}
               {activeTab === 'positions' && signer && (
-                <LPPositions signer={signer} contracts={CONTRACTS} />
+                <LPPositions
+                  signer={signer}
+                  contracts={CONTRACTS}
+                  onManageLiquidity={handleManageLiquidity}
+                />
               )}
               {activeTab === 'history' && signer && (
                 <SwapHistory signer={signer} contracts={CONTRACTS} />

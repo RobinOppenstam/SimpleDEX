@@ -42,9 +42,10 @@ interface LPPositionsProps {
   contracts: {
     FACTORY: string;
   };
+  onManageLiquidity?: (tokenA: Token, tokenB: Token, action: 'add' | 'remove') => void;
 }
 
-export default function LPPositions({ signer, contracts }: LPPositionsProps) {
+export default function LPPositions({ signer, contracts, onManageLiquidity }: LPPositionsProps) {
   const [positions, setPositions] = useState<LPPosition[]>([]);
   const [loading, setLoading] = useState(true);
   const { chainId } = useNetwork();
@@ -227,24 +228,32 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
               </div>
             </div>
 
-            {/* APR/APY Details */}
+            {/* APR and LP Token Balance */}
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
               <div>
                 <p className="text-xs text-gray-500 mb-1">APR</p>
                 <p className="text-lg font-semibold text-green-600">{position.apr.toFixed(2)}%</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">APY</p>
-                <p className="text-lg font-semibold text-green-600">{position.apy.toFixed(2)}%</p>
+                <p className="text-xs text-gray-500 mb-1">LP Token Balance</p>
+                <p className="text-lg font-semibold">{formatNumber(position.lpBalance)}</p>
               </div>
             </div>
 
-            {/* LP Token Balance */}
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-gray-600">LP Token Balance</p>
-                <p className="text-sm font-semibold">{formatNumber(position.lpBalance)} LP</p>
-              </div>
+            {/* Action Buttons */}
+            <div className="mt-4 pt-4 border-t border-gray-100 flex gap-3">
+              <button
+                onClick={() => onManageLiquidity?.(position.tokenA, position.tokenB, 'add')}
+                className="flex-1 bg-indigo-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-indigo-700 transition"
+              >
+                Add Liquidity
+              </button>
+              <button
+                onClick={() => onManageLiquidity?.(position.tokenA, position.tokenB, 'remove')}
+                className="flex-1 bg-gray-600 text-white py-2 px-4 rounded-lg font-semibold hover:bg-gray-700 transition"
+              >
+                Remove Liquidity
+              </button>
             </div>
           </div>
         ))}

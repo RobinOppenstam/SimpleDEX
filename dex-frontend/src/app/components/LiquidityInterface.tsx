@@ -38,15 +38,25 @@ interface LiquidityInterfaceProps {
     FACTORY: string;
   };
   onTokenChange?: (tokenA: Token | null, tokenB: Token | null) => void;
+  initialTokenA?: Token | null;
+  initialTokenB?: Token | null;
+  initialTab?: 'add' | 'remove';
 }
 
-export default function LiquidityInterface({ signer, contracts, onTokenChange }: LiquidityInterfaceProps) {
+export default function LiquidityInterface({
+  signer,
+  contracts,
+  onTokenChange,
+  initialTokenA = null,
+  initialTokenB = null,
+  initialTab = 'add'
+}: LiquidityInterfaceProps) {
   // Get network-aware tokens
   const { chainId } = useNetwork();
   const TOKENS = useMemo(() => getTokensForNetwork(chainId), [chainId]);
 
-  const [tokenA, setTokenA] = useState<Token | null>(null);
-  const [tokenB, setTokenB] = useState<Token | null>(null);
+  const [tokenA, setTokenA] = useState<Token | null>(initialTokenA);
+  const [tokenB, setTokenB] = useState<Token | null>(initialTokenB);
   const [amountA, setAmountA] = useState('');
   const [amountB, setAmountB] = useState('');
   const [loading, setLoading] = useState(false);
@@ -60,7 +70,7 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
   const [needsApprovalA, setNeedsApprovalA] = useState(false);
   const [needsApprovalB, setNeedsApprovalB] = useState(false);
   const [lpSelectorOpen, setLpSelectorOpen] = useState(false);
-  const [liquidityMode, setLiquidityMode] = useState<'add' | 'remove'>('add');
+  const [liquidityMode, setLiquidityMode] = useState<'add' | 'remove'>(initialTab);
   const [lpBalances, setLpBalances] = useState<Record<string, string>>({});
 
   // Notification modal state
