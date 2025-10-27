@@ -6,6 +6,7 @@ import { ethers } from 'ethers';
 import { getTokensForNetwork } from '../config/tokens';
 import { PRICE_ORACLE_ABI, formatPrice } from '../config/priceFeeds';
 import { useNetwork } from '@/hooks/useNetwork';
+import { fetchCoinGeckoPriceChanges } from '../utils/coingecko';
 
 export interface TokenPrices {
   [symbol: string]: number; // Price in USD
@@ -13,11 +14,6 @@ export interface TokenPrices {
 
 export interface PriceChange {
   [symbol: string]: number; // Price change percentage
-}
-
-export interface PriceHistory {
-  timestamp: number;
-  prices: TokenPrices;
 }
 
 export interface UsePricesReturn {
@@ -43,7 +39,6 @@ export function usePrices(
   const [prices, setPrices] = useState<TokenPrices>({});
   const [priceChanges1h, setPriceChanges1h] = useState<PriceChange>({});
   const [priceChanges24h, setPriceChanges24h] = useState<PriceChange>({});
-  const [priceHistory, setPriceHistory] = useState<PriceHistory[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<Error | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
@@ -53,44 +48,17 @@ export function usePrices(
   const actualRefreshInterval = refreshInterval ?? (network?.features.priceUpdateInterval ?? 15) * 1000;
   const priceOracleAddress = network?.contracts.priceOracle || '';
 
-  // Load price history from localStorage on mount
-  useEffect(() => {
-    if (typeof window === 'undefined') return;
-    const stored = localStorage.getItem('priceHistory');
-    if (stored) {
-      try {
-        const history: PriceHistory[] = JSON.parse(stored);
-        setPriceHistory(history);
-      } catch (err) {
-        console.error('[usePrices] Error loading price history:', err);
-      }
+  // Fetch price changes from CoinGecko
+  const fetchPriceChanges = useCallback(async () => {
+    try {
+      const { priceChanges1h: changes1h, priceChanges24h: changes24h } = await fetchCoinGeckoPriceChanges();
+      setPriceChanges1h(changes1h);
+      setPriceChanges24h(changes24h);
+      console.log('[usePrices] CoinGecko price changes updated:', { changes1h, changes24h });
+    } catch (err) {
+      console.error('[usePrices] Error fetching CoinGecko price changes:', err);
     }
   }, []);
-
-  // Save price history to localStorage whenever it changes
-  useEffect(() => {
-    if (typeof window === 'undefined' || priceHistory.length === 0) return;
-    localStorage.setItem('priceHistory', JSON.stringify(priceHistory));
-  }, [priceHistory]);
-
-  // Helper function to calculate price change
-  const calculatePriceChange = (currentPrice: number, oldPrice: number | undefined): number => {
-    if (!oldPrice || oldPrice === 0 || currentPrice === 0) {
-      // Simulate random price changes for demonstration (-10% to +10%)
-      return (Math.random() - 0.5) * 20;
-    }
-    return ((currentPrice - oldPrice) / oldPrice) * 100;
-  };
-
-  // Helper function to find price from history
-  const findHistoricalPrice = (symbol: string, hoursAgo: number): number | undefined => {
-    const targetTime = Date.now() - (hoursAgo * 60 * 60 * 1000);
-    // Find the closest price data to the target time
-    const closest = priceHistory
-      .filter(h => h.timestamp <= targetTime)
-      .sort((a, b) => Math.abs(targetTime - a.timestamp) - Math.abs(targetTime - b.timestamp))[0];
-    return closest?.prices[symbol];
-  };
 
   const fetchPrices = useCallback(async () => {
     if (!provider) {
@@ -147,38 +115,7 @@ export function usePrices(
 
       console.log('[usePrices] All prices fetched:', newPrices);
 
-      // Calculate 1hr and 24hr price changes
-      const newPriceChanges1h: PriceChange = {};
-      const newPriceChanges24h: PriceChange = {};
-
-      for (const symbol in newPrices) {
-        const currentPrice = newPrices[symbol];
-        const price1hAgo = findHistoricalPrice(symbol, 1);
-        const price24hAgo = findHistoricalPrice(symbol, 24);
-
-        newPriceChanges1h[symbol] = calculatePriceChange(currentPrice, price1hAgo);
-        newPriceChanges24h[symbol] = calculatePriceChange(currentPrice, price24hAgo);
-      }
-
       setPrices(newPrices);
-      setPriceChanges1h(newPriceChanges1h);
-      setPriceChanges24h(newPriceChanges24h);
-
-      // Add current prices to history
-      const now = Date.now();
-      const newHistory: PriceHistory = { timestamp: now, prices: newPrices };
-
-      // Keep only last 25 hours of data (one entry per hour max)
-      const updatedHistory = [...priceHistory, newHistory]
-        .filter(h => now - h.timestamp <= 25 * 60 * 60 * 1000)
-        // Remove duplicates within same hour
-        .filter((h, idx, arr) => {
-          const hourBucket = Math.floor(h.timestamp / (60 * 60 * 1000));
-          return idx === arr.findIndex(x => Math.floor(x.timestamp / (60 * 60 * 1000)) === hourBucket);
-        });
-
-      setPriceHistory(updatedHistory);
-
       setLastUpdate(new Date());
       setLoading(false);
     } catch (err) {
@@ -186,24 +123,39 @@ export function usePrices(
       setError(err instanceof Error ? err : new Error('Unknown error'));
       setLoading(false);
     }
-  }, [provider, priceOracleAddress, network, priceHistory]);
+  }, [provider, priceOracleAddress, network]);
 
-  // Initial fetch
+  // Initial fetch for prices
   useEffect(() => {
     fetchPrices();
   }, [provider]);
 
-  // Set up periodic refresh (only if interval > 0, for static prices on Anvil we don't refresh)
+  // Initial fetch for CoinGecko price changes
+  useEffect(() => {
+    fetchPriceChanges();
+  }, [fetchPriceChanges]);
+
+  // Set up periodic refresh for prices (only if interval > 0, for static prices on Anvil we don't refresh)
   useEffect(() => {
     if (!provider || actualRefreshInterval === 0) return;
 
-    console.log(`[usePrices] Setting up refresh every ${actualRefreshInterval / 1000}s`);
+    console.log(`[usePrices] Setting up price refresh every ${actualRefreshInterval / 1000}s`);
     const interval = setInterval(() => {
       fetchPrices();
     }, actualRefreshInterval);
 
     return () => clearInterval(interval);
   }, [provider, actualRefreshInterval, fetchPrices]);
+
+  // Set up periodic refresh for CoinGecko price changes (every 5 minutes)
+  useEffect(() => {
+    console.log('[usePrices] Setting up CoinGecko refresh every 5 minutes');
+    const interval = setInterval(() => {
+      fetchPriceChanges();
+    }, 5 * 60 * 1000); // 5 minutes
+
+    return () => clearInterval(interval);
+  }, [fetchPriceChanges]);
 
   // Subscribe to new blocks for more real-time updates (optional)
   useEffect(() => {
