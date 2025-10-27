@@ -14,7 +14,6 @@ import SwapHistory from '@/app/components/SwapHistory';
 import Faucet from '@/app/components/Faucet';
 import Analytics from '@/app/components/Analytics';
 import Market from '@/app/components/Market';
-import { NetworkSwitcher } from '@/components/NetworkSwitcher';
 import { useNetwork } from '@/hooks/useNetwork';
 // import { Token } from '@/app/config/tokens';
 
@@ -55,9 +54,6 @@ export default function Home() {
               <ConnectButton />
             </div>
           </div>
-
-          {/* Network Switcher */}
-          {isConnected && <NetworkSwitcher />}
         </header>
 
         {/* Main Interface - Centered */}
@@ -115,7 +111,8 @@ export default function Home() {
                 >
                   Faucet
                 </button>
-                <button
+                {/* Analytics tab hidden for now */}
+                {/* <button
                   onClick={() => setActiveTab('analytics')}
                   className={`px-6 py-3 font-semibold transition whitespace-nowrap ${
                     activeTab === 'analytics'
@@ -124,7 +121,7 @@ export default function Home() {
                   }`}
                 >
                   Analytics
-                </button>
+                </button> */}
                 <button
                   onClick={() => setActiveTab('market')}
                   className={`px-6 py-3 font-semibold transition whitespace-nowrap ${

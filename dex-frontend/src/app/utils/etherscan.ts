@@ -73,10 +73,13 @@ export async function fetchLogsFromEtherscan(
   const url = `${baseUrl}?${params.toString()}`;
 
   console.log(`[Etherscan] Fetching logs from ${contractAddress.slice(0, 10)}...`);
+  console.log(`[Etherscan] URL: ${url}`);
 
   try {
     const response = await fetch(url);
     const data: EtherscanResponse = await response.json();
+
+    console.log(`[Etherscan] Response:`, data);
 
     if (data.status !== '1') {
       // Status "0" with "No records found" is not an error, just empty results
@@ -161,11 +164,14 @@ export async function fetchAllLogsFromEtherscan(
       const response = await fetch(url);
       const data: EtherscanResponse = await response.json();
 
+      console.log(`[Etherscan] Response for page ${page}:`, data);
+
       if (data.status !== '1') {
         if (data.message === 'No records found') {
           break;
         }
-        throw new Error(`Etherscan API error: ${data.message}`);
+        console.error(`[Etherscan] Full error response:`, JSON.stringify(data));
+        throw new Error(`Etherscan API error: ${data.message}${data.result ? ' - ' + data.result : ''}`);
       }
 
       const logs = (data.result as EtherscanLog[]).map((log) => ({

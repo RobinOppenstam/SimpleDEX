@@ -7,7 +7,6 @@ import { getTokenByAddress } from '../config/tokens';
 import { usePrices } from '../hooks/usePrices';
 import { useNetwork } from '@/hooks/useNetwork';
 import LPTokenIcon from './LPTokenIcon';
-import { fetchAllLogsFromEtherscan } from '../utils/etherscan';
 
 const FACTORY_ABI = [
   'function allPairs(uint) external view returns (address pair)',
@@ -74,23 +73,19 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
     return tokenAmount * price;
   };
 
-  // Count unique LP holders for a pair using Etherscan API
+  // Count unique LP holders for a pair using Etherscan API or fallback to RPC
   const countLPHolders = async (pairAddress: string): Promise<number> => {
     try {
       const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
 
-      // Get Transfer event signature
-      const transferEventSignature = ethers.id('Transfer(address,address,uint256)');
+      let transferEvents: ethers.Log[] = [];
 
-      // Fetch all Transfer events from Etherscan
-      const transferEvents = await fetchAllLogsFromEtherscan(
-        chainId,
-        pairAddress,
-        [transferEventSignature],
-        0,
-        'latest',
-        process.env.NEXT_PUBLIC_ETHERSCAN_API_KEY
-      );
+      // Use RPC method (Etherscan API has issues)
+      console.log(`[Analytics] Fetching Transfer events via RPC for ${pairAddress}`);
+      const transferFilter = pair.filters.Transfer();
+      transferEvents = await pair.queryFilter(transferFilter, 0) as ethers.Log[];
+      console.log(`[Analytics] Found ${transferEvents.length} Transfer events via RPC`);
+
 
       // Parse events and collect unique addresses
       const uniqueAddresses = new Set<string>();
@@ -112,6 +107,8 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
         }
       }
 
+      console.log(`[Analytics] Found ${uniqueAddresses.size} unique addresses for ${pairAddress}`);
+
       // Count how many still have balance > 0
       let activeHolders = 0;
       for (const address of uniqueAddresses) {
@@ -125,6 +122,7 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
         }
       }
 
+      console.log(`[Analytics] ${activeHolders} active holders for ${pairAddress}`);
       return activeHolders;
     } catch (error) {
       console.error('[Analytics] Error counting LP holders:', error);
@@ -132,7 +130,7 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
     }
   };
 
-  // Count swaps and calculate volume for a pair using Etherscan API
+  // Count swaps and calculate volume for a pair using Etherscan API or fallback to RPC
   const countSwapsAndVolume = async (
     pairAddress: string,
     token0Symbol: string,
@@ -141,18 +139,14 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
     try {
       const pair = new ethers.Contract(pairAddress, PAIR_ABI, provider);
 
-      // Get Swap event signature
-      const swapEventSignature = ethers.id('Swap(address,uint256,uint256,uint256,uint256,address)');
+      let swapEvents: ethers.Log[] = [];
 
-      // Fetch all Swap events from Etherscan
-      const swapEvents = await fetchAllLogsFromEtherscan(
-        chainId,
-        pairAddress,
-        [swapEventSignature],
-        0,
-        'latest',
-        process.env.NEXT_PUBLIC_ETHERSCAN_API_KEY
-      );
+      // Use RPC method (Etherscan API has issues)
+      console.log(`[Analytics] Fetching Swap events via RPC for ${pairAddress}`);
+      const swapFilter = pair.filters.Swap();
+      swapEvents = await pair.queryFilter(swapFilter, 0) as ethers.Log[];
+      console.log(`[Analytics] Found ${swapEvents.length} Swap events via RPC`);
+
 
       let volumeUSD = 0;
       for (const log of swapEvents) {
@@ -186,6 +180,8 @@ export default function Analytics({ provider, contracts }: AnalyticsProps) {
 
       // Divide by 2 since we counted both sides of each swap
       volumeUSD = volumeUSD / 2;
+
+      console.log(`[Analytics] Total volume for ${pairAddress}: $${volumeUSD.toFixed(2)}, ${swapEvents.length} swaps`);
 
       return {
         swapCount: swapEvents.length,

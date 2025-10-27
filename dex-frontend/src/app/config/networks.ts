@@ -23,7 +23,6 @@ export interface NetworkConfig {
     WETH: string;
     WBTC: string;
     LINK: string;
-    UNI: string;
   };
   features: {
     realPriceFeeds: boolean; // True for Sepolia (Chainlink), false for Anvil (static)
@@ -57,7 +56,6 @@ export const NETWORKS: Record<number, NetworkConfig> = {
       WETH: process.env.NEXT_PUBLIC_WETH_ADDRESS || '',
       WBTC: process.env.NEXT_PUBLIC_WBTC_ADDRESS || '',
       LINK: process.env.NEXT_PUBLIC_LINK_ADDRESS || '',
-      UNI: process.env.NEXT_PUBLIC_UNI_ADDRESS || '',
     },
     features: {
       realPriceFeeds: false, // Static prices (mock aggregators)
@@ -89,7 +87,6 @@ export const NETWORKS: Record<number, NetworkConfig> = {
       WETH: process.env.NEXT_PUBLIC_SEPOLIA_WETH_ADDRESS || '',
       WBTC: process.env.NEXT_PUBLIC_SEPOLIA_WBTC_ADDRESS || '',
       LINK: process.env.NEXT_PUBLIC_SEPOLIA_LINK_ADDRESS || '',
-      UNI: process.env.NEXT_PUBLIC_SEPOLIA_UNI_ADDRESS || '',
     },
     features: {
       realPriceFeeds: true, // Real Chainlink price feeds

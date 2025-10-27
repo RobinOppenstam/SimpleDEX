@@ -30,7 +30,6 @@ function createTokenRegistry(tokens: {
   WETH: string;
   WBTC: string;
   LINK: string;
-  UNI: string;
 }): Record<string, Token> {
   return {
     mUSDC: {
@@ -78,13 +77,6 @@ function createTokenRegistry(tokens: {
       decimals: 18,
       logoURI: '/LINK.png',
     },
-    mUNI: {
-      address: tokens.UNI,
-      symbol: 'mUNI',
-      name: 'Mock Uniswap',
-      decimals: 18,
-      logoURI: '/UNI.png',
-    },
   };
 }
 
@@ -100,7 +92,6 @@ export function getTokensForNetwork(chainId: number): Record<string, Token> {
       WETH: '',
       WBTC: '',
       LINK: '',
-      UNI: '',
     });
   }
   return createTokenRegistry(network.tokens);
@@ -163,7 +154,6 @@ export const SUGGESTED_PAIRS: [string, string][] = [
   ['mUSDC', 'mDAI'],
   ['mLINK', 'mUSDC'],
   ['mLINK', 'mWETH'],
-  ['mUNI', 'mUSDC'],
 ];
 
 // Export token list in standard format
