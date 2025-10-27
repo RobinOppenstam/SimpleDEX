@@ -1,7 +1,7 @@
 // utils/etherscan.ts
 import { ethers } from 'ethers';
 
-// Etherscan API endpoints
+// Etherscan API endpoints (V1 - V2 not yet available)
 const ETHERSCAN_API_URLS: Record<number, string> = {
   11155111: 'https://api-sepolia.etherscan.io/api', // Sepolia
   1: 'https://api.etherscan.io/api', // Mainnet

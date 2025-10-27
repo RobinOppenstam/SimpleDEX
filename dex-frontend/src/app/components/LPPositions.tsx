@@ -7,6 +7,7 @@ import { Token, getAllTokens } from '../config/tokens';
 import { formatNumber, formatPercent } from '../utils/formatNumber';
 import LPTokenIcon from './LPTokenIcon';
 import { useNetwork } from '@/hooks/useNetwork';
+import { calculateAPRForPools } from '../utils/aprCalculator';
 
 const FACTORY_ABI = [
   'function getPair(address tokenA, address tokenB) external view returns (address pair)',
@@ -18,11 +19,6 @@ const PAIR_ABI = [
   'function token1() external view returns (address)',
   'function balanceOf(address owner) view returns (uint256)',
   'function totalSupply() view returns (uint256)',
-];
-
-const ERC20_ABI = [
-  'function symbol() view returns (string)',
-  'function decimals() view returns (uint8)',
 ];
 
 interface LPPosition {
@@ -106,27 +102,6 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
               const userReserveA = (lpBalance * reserveA) / totalSupply;
               const userReserveB = (lpBalance * reserveB) / totalSupply;
 
-              // Calculate simulated APR based on pool characteristics
-              // Higher liquidity = lower APR (less volatility), Stablecoin pairs = lower APR
-              const isStablePair = (tokenA.isStablecoin && tokenB.isStablecoin);
-              const hasStable = (tokenA.isStablecoin || tokenB.isStablecoin);
-
-              let baseAPR = 0;
-              if (isStablePair) {
-                // Stablecoin pairs: 2-8% APR
-                baseAPR = 2 + Math.random() * 6;
-              } else if (hasStable) {
-                // Mixed pairs (e.g., ETH/USDC): 8-25% APR
-                baseAPR = 8 + Math.random() * 17;
-              } else {
-                // Volatile pairs (e.g., ETH/WBTC): 15-45% APR
-                baseAPR = 15 + Math.random() * 30;
-              }
-
-              // Calculate APY from APR (assuming daily compounding)
-              // APY = (1 + APR/365)^365 - 1
-              const baseAPY = (Math.pow(1 + baseAPR / 100 / 365, 365) - 1) * 100;
-
               positionsData.push({
                 pairAddress,
                 tokenA,
@@ -139,8 +114,8 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
                 reserveB: ethers.formatUnits(reserveB, tokenB.decimals),
                 valueA: ethers.formatUnits(userReserveA, tokenA.decimals),
                 valueB: ethers.formatUnits(userReserveB, tokenB.decimals),
-                apr: baseAPR,
-                apy: baseAPY,
+                apr: 0, // Will be calculated below
+                apy: 0, // Will be calculated below
               });
             }
           } catch (error) {
@@ -151,6 +126,36 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
       }
 
       console.log('[LPPositions] Found', positionsData.length, 'LP positions');
+
+      // Calculate real APR/APY for all positions
+      if (positionsData.length > 0 && signer.provider) {
+        console.log('[LPPositions] Calculating real APR/APY for positions...');
+
+        const poolData = positionsData.map((pos) => ({
+          pairAddress: pos.pairAddress,
+          token0Decimals: pos.tokenA.decimals,
+          token1Decimals: pos.tokenB.decimals,
+        }));
+
+        try {
+          const aprResults = await calculateAPRForPools(poolData, signer.provider);
+
+          // Update positions with real APR/APY
+          positionsData.forEach((pos) => {
+            const aprData = aprResults.get(pos.pairAddress);
+            if (aprData) {
+              pos.apr = aprData.apr;
+              pos.apy = aprData.apy;
+            }
+          });
+
+          console.log('[LPPositions] APR/APY calculation complete');
+        } catch (error) {
+          console.error('[LPPositions] Error calculating APR/APY:', error);
+          // Keep default 0 values if calculation fails
+        }
+      }
+
       setPositions(positionsData);
     } catch (error) {
       console.error('[LPPositions] Error loading LP positions:', error);
@@ -219,28 +224,18 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
               <div className="text-right">
                 <p className="text-xs text-gray-500">Pool Share</p>
                 <p className="text-lg font-bold text-indigo-600">{formatPercent(position.poolShare)}</p>
-                <div className="mt-2 flex gap-4 justify-end">
-                  <div>
-                    <p className="text-xs text-gray-500">APR</p>
-                    <p className="text-sm font-bold text-green-600">{position.apr.toFixed(2)}%</p>
-                  </div>
-                  <div>
-                    <p className="text-xs text-gray-500">APY</p>
-                    <p className="text-sm font-bold text-green-600">{position.apy.toFixed(2)}%</p>
-                  </div>
-                </div>
               </div>
             </div>
 
-            {/* Position Details */}
+            {/* APR/APY Details */}
             <div className="grid grid-cols-2 gap-4 pt-4 border-t border-gray-100">
               <div>
-                <p className="text-xs text-gray-500 mb-1">Your Pooled {position.tokenA.symbol}</p>
-                <p className="text-lg font-semibold">{formatNumber(position.valueA)}</p>
+                <p className="text-xs text-gray-500 mb-1">APR</p>
+                <p className="text-lg font-semibold text-green-600">{position.apr.toFixed(2)}%</p>
               </div>
               <div>
-                <p className="text-xs text-gray-500 mb-1">Your Pooled {position.tokenB.symbol}</p>
-                <p className="text-lg font-semibold">{formatNumber(position.valueB)}</p>
+                <p className="text-xs text-gray-500 mb-1">APY</p>
+                <p className="text-lg font-semibold text-green-600">{position.apy.toFixed(2)}%</p>
               </div>
             </div>
 
@@ -249,15 +244,6 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
               <div className="flex justify-between items-center">
                 <p className="text-sm text-gray-600">LP Token Balance</p>
                 <p className="text-sm font-semibold">{formatNumber(position.lpBalance)} LP</p>
-              </div>
-            </div>
-
-            {/* Pool Reserves */}
-            <div className="mt-4 pt-4 border-t border-gray-100">
-              <p className="text-xs text-gray-500 mb-2">Total Pool Reserves</p>
-              <div className="flex justify-between text-sm">
-                <span>{formatNumber(position.reserveA)} {position.tokenA.symbol}</span>
-                <span>{formatNumber(position.reserveB)} {position.tokenB.symbol}</span>
               </div>
             </div>
           </div>
