@@ -396,28 +396,30 @@ export default function Faucet({ signer }: FaucetProps) {
               )}
 
               {/* Claim Button */}
-              <button
-                onClick={() => handleClaim(token)}
-                disabled={loading || !canClaim || !info}
-                className={`w-full py-3 rounded-lg font-semibold transition ${
-                  loading && selectedToken?.address === token.address
-                    ? 'bg-gray-400 cursor-not-allowed text-white'
-                    : canClaim
-                    ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
-                    : 'bg-gray-300 cursor-not-allowed text-gray-600'
-                } disabled:opacity-50 disabled:cursor-not-allowed`}
-              >
-                {loading && selectedToken?.address === token.address ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
-                    Claiming...
-                  </span>
-                ) : canClaim ? (
-                  `Claim ${info?.dripAmount || '0'} ${token.symbol}`
-                ) : (
-                  'On Cooldown'
-                )}
-              </button>
+              <div className="flex justify-center">
+                <button
+                  onClick={() => handleClaim(token)}
+                  disabled={loading || !canClaim || !info}
+                  className={`w-[60%] py-3 rounded-lg font-semibold transition ${
+                    loading && selectedToken?.address === token.address
+                      ? 'bg-gray-400 cursor-not-allowed text-white'
+                      : canClaim
+                      ? 'bg-indigo-600 hover:bg-indigo-700 text-white'
+                      : 'bg-gray-300 cursor-not-allowed text-gray-600'
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
+                >
+                  {loading && selectedToken?.address === token.address ? (
+                    <span className="flex items-center justify-center gap-2">
+                      <div className="animate-spin rounded-full h-5 w-5 border-b-2 border-white"></div>
+                      Claiming...
+                    </span>
+                  ) : canClaim ? (
+                    `Claim ${info?.dripAmount || '0'} ${token.symbol}`
+                  ) : (
+                    'On Cooldown'
+                  )}
+                </button>
+              </div>
             </div>
           );
         })}

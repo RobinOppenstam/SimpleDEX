@@ -2,7 +2,7 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { Token, getAllTokens, searchTokens, COMMON_BASES } from '../config/tokens';
+import { Token, getAllTokens, searchTokens } from '../config/tokens';
 import { ethers } from 'ethers';
 import { formatNumber } from '../utils/formatNumber';
 import { useNetwork } from '@/hooks/useNetwork';
@@ -28,10 +28,6 @@ export default function TokenSelector({ selectedToken, onSelect, excludeToken, s
 
   const filteredTokens = tokens.filter(
     token => token.address !== excludeToken?.address
-  );
-
-  const commonBaseTokens = filteredTokens.filter(token =>
-    COMMON_BASES.includes(token.symbol)
   );
 
   useEffect(() => {
@@ -106,13 +102,13 @@ export default function TokenSelector({ selectedToken, onSelect, excludeToken, s
       {/* Modal Overlay */}
       {isOpen && (
         <>
-          <div 
-            className="fixed inset-0 bg-black bg-opacity-50 z-40" 
+          <div
+            className="fixed inset-0 bg-black bg-opacity-50 z-40"
             onClick={() => setIsOpen(false)}
           />
-          
-          {/* Token List Modal */}
-          <div className="absolute top-full mt-2 bg-white rounded-2xl shadow-2xl z-50 w-96 max-h-[500px] flex flex-col">
+
+          {/* Token List Modal - Centered */}
+          <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl z-50 w-96 max-h-[500px] flex flex-col">
             {/* Header */}
             <div className="p-4 border-b">
               <div className="flex justify-between items-center mb-3">
@@ -138,43 +134,20 @@ export default function TokenSelector({ selectedToken, onSelect, excludeToken, s
               />
             </div>
 
-            {/* Common Bases */}
-            {!searchQuery && (
-              <div className="p-4 border-b">
-                <p className="text-xs text-gray-500 mb-2">Common bases</p>
-                <div className="flex gap-2 flex-wrap">
-                  {commonBaseTokens.map((token) => (
-                    <button
-                      key={token.address}
-                      onClick={() => handleSelect(token)}
-                      className="flex items-center gap-2 px-3 py-1.5 bg-gray-100 hover:bg-gray-200 rounded-lg transition"
-                    >
-                      {token.logoURI ? (
-                        <img src={token.logoURI} alt={token.symbol} className="w-5 h-5 rounded-full" />
-                      ) : (
-                        <div className="w-5 h-5 bg-gradient-to-br from-indigo-500 to-purple-500 rounded-full flex items-center justify-center text-white text-xs font-bold">
-                          {token.symbol[0]}
-                        </div>
-                      )}
-                      <span className="font-medium text-sm">{token.symbol}</span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
             {/* Token List */}
-            <div className="flex-1 overflow-y-auto">
+            <div className="flex-1 overflow-y-auto rounded-b-2xl">
               {filteredTokens.length === 0 ? (
                 <div className="p-8 text-center text-gray-500">
                   <p>No tokens found</p>
                 </div>
               ) : (
-                filteredTokens.map((token) => (
+                filteredTokens.map((token, index) => (
                   <button
                     key={token.address}
                     onClick={() => handleSelect(token)}
-                    className="w-full px-4 py-3 hover:bg-gray-50 transition flex items-center justify-between"
+                    className={`w-full px-4 py-3 hover:bg-gray-50 transition flex items-center justify-between ${
+                      index === filteredTokens.length - 1 ? 'rounded-b-2xl' : ''
+                    }`}
                   >
                     <div className="flex items-center gap-3">
                       {token.logoURI ? (
@@ -199,13 +172,6 @@ export default function TokenSelector({ selectedToken, onSelect, excludeToken, s
                   </button>
                 ))
               )}
-            </div>
-
-            {/* Footer */}
-            <div className="p-3 border-t bg-gray-50 rounded-b-2xl">
-              <button className="text-xs text-indigo-600 hover:text-indigo-700 font-medium">
-                Manage token lists
-              </button>
             </div>
           </div>
         </>

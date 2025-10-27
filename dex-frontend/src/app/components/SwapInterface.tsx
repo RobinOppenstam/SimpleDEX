@@ -477,30 +477,32 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
       )}
 
       {/* Action Button */}
-      {!tokenIn || !tokenOut ? (
-        <button
-          disabled
-          className="w-full bg-gray-300 text-white py-4 rounded-xl font-semibold cursor-not-allowed"
-        >
-          Select tokens
-        </button>
-      ) : needsApproval ? (
-        <button
-          onClick={approveToken}
-          disabled={loading || !amountIn || parseFloat(amountIn) <= 0}
-          className="w-full bg-yellow-500 text-white py-4 rounded-xl font-semibold hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-        >
-          {loading ? 'Approving...' : `Approve ${tokenIn.symbol}`}
-        </button>
-      ) : (
-        <button
-          onClick={handleSwap}
-          disabled={loading || !amountIn || parseFloat(amountIn) <= 0 || !amountOut}
-          className="w-full bg-indigo-600 text-white py-4 rounded-xl font-semibold hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-        >
-          {loading ? 'Swapping...' : 'Swap'}
-        </button>
-      )}
+      <div className="flex justify-center">
+        {!tokenIn || !tokenOut ? (
+          <button
+            disabled
+            className="w-[60%] bg-gray-300 text-white py-4 rounded-xl font-semibold cursor-not-allowed"
+          >
+            Select tokens
+          </button>
+        ) : needsApproval ? (
+          <button
+            onClick={approveToken}
+            disabled={loading || !amountIn || parseFloat(amountIn) <= 0}
+            className="w-[60%] bg-yellow-500 text-white py-4 rounded-xl font-semibold hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+          >
+            {loading ? 'Approving...' : `Approve ${tokenIn.symbol}`}
+          </button>
+        ) : (
+          <button
+            onClick={handleSwap}
+            disabled={loading || !amountIn || parseFloat(amountIn) <= 0 || !amountOut}
+            className="w-[60%] bg-indigo-600 text-white py-4 rounded-xl font-semibold hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+          >
+            {loading ? 'Swapping...' : 'Swap'}
+          </button>
+        )}
+      </div>
 
       {/* Notification Modal */}
       <NotificationModal

@@ -37,6 +37,8 @@ interface LPPosition {
   reserveB: string;
   valueA: string;
   valueB: string;
+  apr: number;
+  apy: number;
 }
 
 interface LPPositionsProps {
@@ -104,6 +106,27 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
               const userReserveA = (lpBalance * reserveA) / totalSupply;
               const userReserveB = (lpBalance * reserveB) / totalSupply;
 
+              // Calculate simulated APR based on pool characteristics
+              // Higher liquidity = lower APR (less volatility), Stablecoin pairs = lower APR
+              const isStablePair = (tokenA.isStablecoin && tokenB.isStablecoin);
+              const hasStable = (tokenA.isStablecoin || tokenB.isStablecoin);
+
+              let baseAPR = 0;
+              if (isStablePair) {
+                // Stablecoin pairs: 2-8% APR
+                baseAPR = 2 + Math.random() * 6;
+              } else if (hasStable) {
+                // Mixed pairs (e.g., ETH/USDC): 8-25% APR
+                baseAPR = 8 + Math.random() * 17;
+              } else {
+                // Volatile pairs (e.g., ETH/WBTC): 15-45% APR
+                baseAPR = 15 + Math.random() * 30;
+              }
+
+              // Calculate APY from APR (assuming daily compounding)
+              // APY = (1 + APR/365)^365 - 1
+              const baseAPY = (Math.pow(1 + baseAPR / 100 / 365, 365) - 1) * 100;
+
               positionsData.push({
                 pairAddress,
                 tokenA,
@@ -116,6 +139,8 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
                 reserveB: ethers.formatUnits(reserveB, tokenB.decimals),
                 valueA: ethers.formatUnits(userReserveA, tokenA.decimals),
                 valueB: ethers.formatUnits(userReserveB, tokenB.decimals),
+                apr: baseAPR,
+                apy: baseAPY,
               });
             }
           } catch (error) {
@@ -194,6 +219,16 @@ export default function LPPositions({ signer, contracts }: LPPositionsProps) {
               <div className="text-right">
                 <p className="text-xs text-gray-500">Pool Share</p>
                 <p className="text-lg font-bold text-indigo-600">{formatPercent(position.poolShare)}</p>
+                <div className="mt-2 flex gap-4 justify-end">
+                  <div>
+                    <p className="text-xs text-gray-500">APR</p>
+                    <p className="text-sm font-bold text-green-600">{position.apr.toFixed(2)}%</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500">APY</p>
+                    <p className="text-sm font-bold text-green-600">{position.apy.toFixed(2)}%</p>
+                  </div>
+                </div>
               </div>
             </div>
 

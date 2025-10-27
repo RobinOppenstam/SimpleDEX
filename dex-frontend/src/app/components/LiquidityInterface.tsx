@@ -61,6 +61,7 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
   const [needsApprovalB, setNeedsApprovalB] = useState(false);
   const [lpSelectorOpen, setLpSelectorOpen] = useState(false);
   const [liquidityMode, setLiquidityMode] = useState<'add' | 'remove'>('add');
+  const [lpBalances, setLpBalances] = useState<Record<string, string>>({});
 
   // Notification modal state
   const [notificationOpen, setNotificationOpen] = useState(false);
@@ -154,6 +155,13 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
 
     document.addEventListener('mousedown', handleClickOutside);
     return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, [lpSelectorOpen]);
+
+  // Load LP balances when modal opens
+  useEffect(() => {
+    if (lpSelectorOpen) {
+      loadAllLPBalances();
+    }
   }, [lpSelectorOpen]);
 
   const loadBalances = async () => {
@@ -250,6 +258,40 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
     } catch (error) {
       console.error('Error loading reserves:', error);
       setIsFirstLiquidity(true);
+    }
+  };
+
+  const loadAllLPBalances = async () => {
+    try {
+      const address = await signer.getAddress();
+      const factory = new ethers.Contract(contracts.FACTORY, FACTORY_ABI, signer);
+      const balances: Record<string, string> = {};
+
+      for (const pair of SUGGESTED_PAIRS) {
+        const [symbolA, symbolB] = pair;
+        const pairTokenA = TOKENS[symbolA];
+        const pairTokenB = TOKENS[symbolB];
+
+        if (!pairTokenA || !pairTokenB) continue;
+
+        try {
+          const pairAddress = await factory.getPair(pairTokenA.address, pairTokenB.address);
+
+          if (pairAddress !== ethers.ZeroAddress) {
+            const pairContract = new ethers.Contract(pairAddress, ERC20_ABI, signer);
+            const balance = await pairContract.balanceOf(address);
+            balances[`${symbolA}-${symbolB}`] = ethers.formatEther(balance);
+          } else {
+            balances[`${symbolA}-${symbolB}`] = '0';
+          }
+        } catch (error) {
+          balances[`${symbolA}-${symbolB}`] = '0';
+        }
+      }
+
+      setLpBalances(balances);
+    } catch (error) {
+      console.error('Error loading LP balances:', error);
     }
   };
 
@@ -634,30 +676,32 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
           </div>
 
           {/* Add Liquidity Button */}
-          {!tokenA || !tokenB ? (
-            <button
-              disabled
-              className="w-full bg-gray-300 text-white py-3 rounded-xl font-semibold cursor-not-allowed"
-            >
-              Select tokens
-            </button>
-          ) : needsApprovalA || needsApprovalB ? (
-            <button
-              onClick={approveTokens}
-              disabled={loading || !amountA || !amountB}
-              className="w-full bg-yellow-500 text-white py-3 rounded-xl font-semibold hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-            >
-              {loading ? 'Approving...' : `Approve ${needsApprovalA && needsApprovalB ? 'Tokens' : needsApprovalA ? tokenA.symbol : tokenB.symbol}`}
-            </button>
-          ) : (
-            <button
-              onClick={handleAddLiquidity}
-              disabled={loading || !amountA || !amountB}
-              className="w-full bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-            >
-              {loading ? 'Adding Liquidity...' : 'Add Liquidity'}
-            </button>
-          )}
+          <div className="flex justify-center">
+            {!tokenA || !tokenB ? (
+              <button
+                disabled
+                className="w-[60%] bg-gray-300 text-white py-3 rounded-xl font-semibold cursor-not-allowed"
+              >
+                Select tokens
+              </button>
+            ) : needsApprovalA || needsApprovalB ? (
+              <button
+                onClick={approveTokens}
+                disabled={loading || !amountA || !amountB}
+                className="w-[60%] bg-yellow-500 text-white py-3 rounded-xl font-semibold hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+              >
+                {loading ? 'Approving...' : `Approve ${needsApprovalA && needsApprovalB ? 'Tokens' : needsApprovalA ? tokenA.symbol : tokenB.symbol}`}
+              </button>
+            ) : (
+              <button
+                onClick={handleAddLiquidity}
+                disabled={loading || !amountA || !amountB}
+                className="w-[60%] bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+              >
+                {loading ? 'Adding Liquidity...' : 'Add Liquidity'}
+              </button>
+            )}
+          </div>
         </div>
       </div>
       )}
@@ -713,46 +757,87 @@ export default function LiquidityInterface({ signer, contracts, onTokenChange }:
                   </svg>
                 </button>
 
-                {/* Dropdown Menu */}
+                {/* Modal Overlay and Dropdown */}
                 {lpSelectorOpen && (
-                  <div className="absolute right-0 mt-2 w-56 bg-white rounded-xl shadow-lg border border-gray-200 z-10 max-h-60 overflow-y-auto">
-                    {SUGGESTED_PAIRS.map((pair) => {
-                      const [symbolA, symbolB] = pair;
-                      const pairTokenA = TOKENS[symbolA];
-                      const pairTokenB = TOKENS[symbolB];
+                  <>
+                    <div
+                      className="fixed inset-0 bg-black bg-opacity-50 z-40"
+                      onClick={() => setLpSelectorOpen(false)}
+                    />
 
-                      if (!pairTokenA || !pairTokenB) return null;
+                    {/* LP Pair Selection Modal - Centered */}
+                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl z-50 w-96 max-h-[400px] flex flex-col">
+                      {/* Header */}
+                      <div className="p-4 border-b">
+                        <div className="flex justify-between items-center">
+                          <h3 className="text-lg font-bold">Select LP Pair</h3>
+                          <button
+                            onClick={() => setLpSelectorOpen(false)}
+                            className="text-gray-400 hover:text-gray-600"
+                          >
+                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                            </svg>
+                          </button>
+                        </div>
+                      </div>
 
-                      return (
-                        <button
-                          key={`${symbolA}-${symbolB}`}
-                          onClick={() => handleLpPairSelect(pair)}
-                          className="w-full px-4 py-3 flex items-center gap-3 hover:bg-gray-50 transition-colors first:rounded-t-xl last:rounded-b-xl"
-                        >
-                          <LPTokenIcon
-                            token0LogoURI={pairTokenA.logoURI}
-                            token1LogoURI={pairTokenB.logoURI}
-                            token0Symbol={pairTokenA.symbol}
-                            token1Symbol={pairTokenB.symbol}
-                            size="sm"
-                          />
-                          <span className="font-medium text-sm">{pairTokenA.symbol}/{pairTokenB.symbol}</span>
-                        </button>
-                      );
-                    })}
-                  </div>
+                      {/* LP Pair List */}
+                      <div className="flex-1 overflow-y-auto rounded-b-2xl">
+                        {SUGGESTED_PAIRS.map((pair, index) => {
+                          const [symbolA, symbolB] = pair;
+                          const pairTokenA = TOKENS[symbolA];
+                          const pairTokenB = TOKENS[symbolB];
+                          const pairKey = `${symbolA}-${symbolB}`;
+                          const balance = lpBalances[pairKey] || '0';
+
+                          if (!pairTokenA || !pairTokenB) return null;
+
+                          return (
+                            <button
+                              key={pairKey}
+                              onClick={() => handleLpPairSelect(pair)}
+                              className={`w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors ${
+                                index === SUGGESTED_PAIRS.length - 1 ? 'rounded-b-2xl' : ''
+                              }`}
+                            >
+                              <div className="flex items-center gap-3">
+                                <LPTokenIcon
+                                  token0LogoURI={pairTokenA.logoURI}
+                                  token1LogoURI={pairTokenB.logoURI}
+                                  token0Symbol={pairTokenA.symbol}
+                                  token1Symbol={pairTokenB.symbol}
+                                  size="sm"
+                                />
+                                <span className="font-medium text-sm">{pairTokenA.symbol}/{pairTokenB.symbol}</span>
+                              </div>
+                              {parseFloat(balance) > 0 && (
+                                <div className="text-right">
+                                  <div className="font-medium text-sm">
+                                    {formatNumber(balance)}
+                                  </div>
+                                </div>
+                              )}
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  </>
                 )}
               </div>
             </div>
           </div>
 
-          <button
-            onClick={handleRemoveLiquidity}
-            disabled={loading || !removeLiquidityAmount || parseFloat(lpBalance) === 0}
-            className="w-full bg-red-500 text-white py-3 rounded-xl font-semibold hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
-          >
-            {loading ? 'Removing...' : 'Remove Liquidity'}
-          </button>
+          <div className="flex justify-center">
+            <button
+              onClick={handleRemoveLiquidity}
+              disabled={loading || !removeLiquidityAmount || parseFloat(lpBalance) === 0}
+              className="w-[60%] bg-red-500 text-white py-3 rounded-xl font-semibold hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+            >
+              {loading ? 'Removing...' : 'Remove Liquidity'}
+            </button>
+          </div>
         </div>
       </div>
       )}
