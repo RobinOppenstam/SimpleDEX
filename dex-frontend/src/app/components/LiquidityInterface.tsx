@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import TokenSelector from './TokenSelector';
 import NotificationModal, { NotificationStatus } from './NotificationModal';
 import LPTokenIcon from './LPTokenIcon';
@@ -36,7 +37,7 @@ const ERC20_ABI = [
 ];
 
 interface LiquidityInterfaceProps {
-  signer: ethers.Signer;
+  signer: ethers.Signer | null;
   contracts: {
     ROUTER: string;
     FACTORY: string;
@@ -179,8 +180,8 @@ export default function LiquidityInterface({
   }, [lpSelectorOpen]);
 
   const loadBalances = async () => {
-    if (!tokenA || !tokenB) {
-      console.log('[LiquidityInterface.loadBalances] No tokens selected');
+    if (!tokenA || !tokenB || !signer) {
+      console.log('[LiquidityInterface.loadBalances] No tokens selected or not connected');
       return;
     }
 
@@ -276,6 +277,7 @@ export default function LiquidityInterface({
   };
 
   const loadAllLPBalances = async () => {
+    if (!signer) return;
     try {
       const address = await signer.getAddress();
       const factory = new ethers.Contract(contracts.FACTORY, FACTORY_ABI, signer);
@@ -350,7 +352,7 @@ export default function LiquidityInterface({
   };
 
   const checkAllowances = async () => {
-    if (!tokenA || !tokenB || !amountA || !amountB) return;
+    if (!tokenA || !tokenB || !amountA || !amountB || !signer) return;
 
     try {
       const address = await signer.getAddress();
@@ -371,7 +373,7 @@ export default function LiquidityInterface({
   };
 
   const approveTokens = async () => {
-    if (!tokenA || !tokenB) return;
+    if (!tokenA || !tokenB || !signer) return;
 
     try {
       setLoading(true);
@@ -457,7 +459,7 @@ export default function LiquidityInterface({
   };
 
   const handleAddLiquidity = async () => {
-    if (!tokenA || !tokenB) return;
+    if (!tokenA || !tokenB || !signer) return;
 
     try {
       setLoading(true);
@@ -523,7 +525,7 @@ export default function LiquidityInterface({
   };
 
   const handleRemoveLiquidity = async () => {
-    if (!tokenA || !tokenB) return;
+    if (!tokenA || !tokenB || !signer) return;
 
     try {
       setLoading(true);
@@ -678,7 +680,20 @@ export default function LiquidityInterface({
 
           {/* Add Liquidity Button */}
           <div className="flex justify-center pt-2">
-            {!tokenA || !tokenB ? (
+            {!signer ? (
+              <ConnectButton.Custom>
+                {({ openConnectModal }) => (
+                  <Button
+                    onClick={openConnectModal}
+                    variant="gradient"
+                    size="lg"
+                    className="w-[60%]"
+                  >
+                    Connect Wallet
+                  </Button>
+                )}
+              </ConnectButton.Custom>
+            ) : !tokenA || !tokenB ? (
               <Button
                 disabled
                 size="lg"
@@ -834,15 +849,30 @@ export default function LiquidityInterface({
           </div>
 
           <div className="flex justify-center pt-2">
-            <Button
-              onClick={handleRemoveLiquidity}
-              disabled={loading || !removeLiquidityAmount || parseFloat(lpBalance) === 0}
-              variant="destructive"
-              size="lg"
-              className="w-[60%]"
-            >
-              {loading ? 'Removing...' : 'Remove Liquidity'}
-            </Button>
+            {!signer ? (
+              <ConnectButton.Custom>
+                {({ openConnectModal }) => (
+                  <Button
+                    onClick={openConnectModal}
+                    variant="gradient"
+                    size="lg"
+                    className="w-[60%]"
+                  >
+                    Connect Wallet
+                  </Button>
+                )}
+              </ConnectButton.Custom>
+            ) : (
+              <Button
+                onClick={handleRemoveLiquidity}
+                disabled={loading || !removeLiquidityAmount || parseFloat(lpBalance) === 0}
+                variant="destructive"
+                size="lg"
+                className="w-[60%]"
+              >
+                {loading ? 'Removing...' : 'Remove Liquidity'}
+              </Button>
+            )}
           </div>
         </div>
       </TabsContent>

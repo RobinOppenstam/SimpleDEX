@@ -3,6 +3,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { ethers } from 'ethers';
+import { ConnectButton } from '@rainbow-me/rainbowkit';
 import TokenSelector from './TokenSelector';
 import NotificationModal, { NotificationStatus } from './NotificationModal';
 import PriceDisplay from './PriceDisplay';
@@ -19,7 +20,7 @@ import { Badge } from '@/components/ui/badge';
 import { ArrowDownUp, RefreshCw } from 'lucide-react';
 
 interface SwapInterfaceProps {
-  signer: ethers.Signer;
+  signer: ethers.Signer | null;
   provider: ethers.Provider;
   contracts: {
     ROUTER: string;
@@ -126,8 +127,8 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
   }, [amountIn, tokenIn, tokenOut]);
 
   const loadBalances = async () => {
-    if (!tokenIn || !tokenOut) {
-      console.log('[loadBalances] No tokens selected');
+    if (!tokenIn || !tokenOut || !signer) {
+      console.log('[loadBalances] No tokens selected or not connected');
       return;
     }
 
@@ -217,7 +218,7 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
   };
 
   const checkAllowance = async () => {
-    if (!tokenIn) return;
+    if (!tokenIn || !signer) return;
 
     try {
       const address = await signer.getAddress();
@@ -232,7 +233,7 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
   };
 
   const approveToken = async () => {
-    if (!tokenIn) return;
+    if (!tokenIn || !signer) return;
 
     try {
       setLoading(true);
@@ -270,7 +271,7 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
   };
 
   const handleSwap = async () => {
-    if (!tokenIn || !tokenOut || !currentRoute) return;
+    if (!tokenIn || !tokenOut || !currentRoute || !signer) return;
 
     try {
       setLoading(true);
@@ -480,7 +481,20 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
 
       {/* Action Button */}
       <div className="flex justify-center pt-2">
-        {!tokenIn || !tokenOut ? (
+        {!signer ? (
+          <ConnectButton.Custom>
+            {({ openConnectModal }) => (
+              <Button
+                onClick={openConnectModal}
+                variant="gradient"
+                size="lg"
+                className="w-[60%]"
+              >
+                Connect Wallet
+              </Button>
+            )}
+          </ConnectButton.Custom>
+        ) : !tokenIn || !tokenOut ? (
           <Button
             disabled
             size="lg"

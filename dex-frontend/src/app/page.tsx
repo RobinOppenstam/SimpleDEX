@@ -66,7 +66,7 @@ export default function Home() {
           <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
             <div className="w-full max-w-lg">
               <Card className="gradient-border p-6">
-                {signer && provider && CONTRACTS.ROUTER ? (
+                {provider && CONTRACTS.ROUTER ? (
                   <SwapInterface
                     signer={signer}
                     provider={provider}
@@ -91,7 +91,7 @@ export default function Home() {
           <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
             <div className="w-full max-w-lg">
               <Card className="gradient-border p-6">
-                {signer && CONTRACTS.ROUTER ? (
+                {CONTRACTS.ROUTER ? (
                   <LiquidityInterface
                     signer={signer}
                     contracts={CONTRACTS}
