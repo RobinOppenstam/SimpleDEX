@@ -134,3 +134,7 @@ temp/
 
 # Auto-generated docs
 docs/
+
+# Markdown files (except README)
+*.md
+!README.md

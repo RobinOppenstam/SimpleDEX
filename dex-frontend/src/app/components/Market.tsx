@@ -51,7 +51,7 @@ export default function Market({ provider }: MarketProps) {
     name: token.name,
     logoURI: token.logoURI,
     price: prices[symbol] || 0,
-    priceChange1h: priceChanges1h[symbol] || 0,
+    priceChange1h: priceChanges1h[symbol] !== undefined ? priceChanges1h[symbol] : null,
     priceChange24h: priceChanges24h[symbol] || 0,
   }));
 
@@ -60,18 +60,18 @@ export default function Market({ provider }: MarketProps) {
 
   if (loading && Object.keys(prices).length === 0) {
     return (
-      <div className="glass gradient-border rounded-2xl shadow-glow p-6">
+      <>
         <h2 className="text-xl font-bold text-foreground mb-4">Market Prices</h2>
         <div className="text-center text-muted-foreground py-8">
           <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-primary mx-auto"></div>
           <p className="mt-3 text-sm">Loading prices...</p>
         </div>
-      </div>
+      </>
     );
   }
 
   return (
-    <div className="glass gradient-border rounded-2xl shadow-glow p-6">
+    <>
       <div className="flex justify-between items-center mb-4">
         <h2 className="text-xl font-bold bg-gradient-silver bg-clip-text text-transparent">Market Prices</h2>
         <Button
@@ -118,14 +118,18 @@ export default function Market({ provider }: MarketProps) {
               <div className="font-bold text-lg text-foreground">
                 {formatUSD(token.price)}
               </div>
-              {token.price > 0 && (
-                <div className="flex gap-3 text-xs font-medium justify-end mt-1">
-                  <Badge variant={token.priceChange1h >= 0 ? 'success' : 'destructive'} className="text-xs">
-                    1h: {formatPriceChange(token.priceChange1h)}
-                  </Badge>
-                  <Badge variant={token.priceChange24h >= 0 ? 'success' : 'destructive'} className="text-xs">
-                    24h: {formatPriceChange(token.priceChange24h)}
-                  </Badge>
+              {token.price > 0 && (token.priceChange1h !== null || token.priceChange24h !== 0) && (
+                <div className="flex gap-2 text-xs font-medium justify-end mt-1">
+                  {token.priceChange1h !== null && (
+                    <Badge variant={token.priceChange1h >= 0 ? 'success' : 'destructive'} className="text-xs">
+                      1h: {formatPriceChange(token.priceChange1h)}
+                    </Badge>
+                  )}
+                  {token.priceChange24h !== 0 && (
+                    <Badge variant={token.priceChange24h >= 0 ? 'success' : 'destructive'} className="text-xs">
+                      24h: {formatPriceChange(token.priceChange24h)}
+                    </Badge>
+                  )}
                 </div>
               )}
             </div>
@@ -141,6 +145,6 @@ export default function Market({ provider }: MarketProps) {
           <span>Prices update automatically every 15 seconds</span>
         </div>
       </div>
-    </div>
+    </>
   );
 }

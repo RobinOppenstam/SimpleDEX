@@ -113,8 +113,21 @@ export default function Home() {
           </div>
         )}
 
+        {/* History tab - narrow width centered like swap/liquidity */}
+        {activeTab === 'history' && (
+          <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
+            <div className="w-full max-w-lg">
+              <Card className="gradient-border p-6">
+                {signer && (
+                  <SwapHistory signer={signer} contracts={CONTRACTS} />
+                )}
+              </Card>
+            </div>
+          </div>
+        )}
+
         {/* Other tabs - full width */}
-        {activeTab !== 'swap' && activeTab !== 'liquidity' && (
+        {activeTab !== 'swap' && activeTab !== 'liquidity' && activeTab !== 'history' && (
           <div className="max-w-7xl mx-auto">
             <Card className="gradient-border p-6">
               {/* Tab Content */}
@@ -124,9 +137,6 @@ export default function Home() {
                   contracts={CONTRACTS}
                   onManageLiquidity={handleManageLiquidity}
                 />
-              )}
-              {activeTab === 'history' && signer && (
-                <SwapHistory signer={signer} contracts={CONTRACTS} />
               )}
               {activeTab === 'faucet' && signer && (
                 <Faucet signer={signer} />

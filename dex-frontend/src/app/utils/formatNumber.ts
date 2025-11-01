@@ -46,7 +46,6 @@ export function formatNumber(value: string | number): string {
   const match = numStr.match(/^-?0\.(0*)([1-9]\d?)/);
 
   if (match) {
-    const leadingZeros = match[1].length;
     const significantDigits = match[2];
     return `${num < 0 ? '-' : ''}0.${match[1]}${significantDigits}`;
   }
@@ -105,4 +104,54 @@ export function formatPercent(value: string | number): string {
 
   // Use formatNumber for smart decimal handling
   return `${formatNumber(num)}%`;
+}
+
+/**
+ * Format input display with smart decimal handling for user input
+ * Rules:
+ * - If no trailing zeros (1.23, 5.67) -> show 2 decimals max
+ * - If has trailing zeros (0.0000, 0.00012) -> show 2 significant digits after last zero
+ *
+ * Examples:
+ * - "1.234567" -> "1.23"
+ * - "0.0000123" -> "0.000012"
+ * - "0.00000001234" -> "0.000000012"
+ * - "123.456789" -> "123.46"
+ * - "" (empty) -> ""
+ */
+export function formatInputDisplay(value: string): string {
+  // Return empty string if no value
+  if (!value || value === '') {
+    return '';
+  }
+
+  const num = parseFloat(value);
+
+  // Handle invalid numbers - return original value to let user continue typing
+  if (isNaN(num) || !isFinite(num)) {
+    return value;
+  }
+
+  // Handle zero
+  if (num === 0) {
+    return '0';
+  }
+
+  // For numbers >= 0.01, limit to 2 decimals
+  if (Math.abs(num) >= 0.01) {
+    return num.toFixed(2);
+  }
+
+  // For very small numbers with trailing zeros, show 2 significant digits
+  // Convert to string to detect the pattern
+  const numStr = num.toFixed(20); // Get enough precision
+  const match = numStr.match(/^-?0\.(0*)([1-9]\d?)/);
+
+  if (match) {
+    const significantDigits = match[2];
+    return `${num < 0 ? '-' : ''}0.${match[1]}${significantDigits}`;
+  }
+
+  // Fallback to 2 decimals
+  return num.toFixed(2);
 }

@@ -7,7 +7,7 @@ import TokenSelector from './TokenSelector';
 import NotificationModal, { NotificationStatus } from './NotificationModal';
 import LPTokenIcon from './LPTokenIcon';
 import { Token, getTokensForNetwork, SUGGESTED_PAIRS } from '../config/tokens';
-import { formatNumber } from '../utils/formatNumber';
+import { formatNumber, formatInputDisplay } from '../utils/formatNumber';
 import { useNetwork } from '@/hooks/useNetwork';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -312,12 +312,13 @@ export default function LiquidityInterface({
   const handleAmountAChange = (value: string) => {
     setAmountA(value);
 
-    // Auto-calculate amountB based on current pool ratio
+    // Auto-calculate amountB based on current pool ratio with smart formatting
     if (!isFirstLiquidity && value && reserveA > BigInt(0)) {
       try {
         const amountAWei = ethers.parseUnits(value, tokenA?.decimals || 18);
         const amountBWei = (amountAWei * reserveB) / reserveA;
-        setAmountB(ethers.formatUnits(amountBWei, tokenB?.decimals || 18));
+        const formattedB = ethers.formatUnits(amountBWei, tokenB?.decimals || 18);
+        setAmountB(formatInputDisplay(formattedB));
       } catch (error) {
         console.error('Error calculating amountB:', error);
       }
@@ -617,13 +618,13 @@ export default function LiquidityInterface({
               <label className="text-sm font-medium text-muted-foreground">{tokenA?.symbol || 'Select token'}</label>
               <span className="text-sm text-muted-foreground">Balance: {formatNumber(balanceA)}</span>
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-3 mt-2">
               <Input
                 type="number"
                 value={amountA}
                 onChange={(e) => handleAmountAChange(e.target.value)}
                 placeholder="0.0"
-                className="flex-1 bg-transparent border-none text-xl font-semibold h-auto p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+                className="flex-1 min-w-0 bg-transparent border-none text-2xl font-semibold h-auto py-1 pl-[5px] pr-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               <TokenSelector
                 selectedToken={tokenA}
@@ -635,31 +636,30 @@ export default function LiquidityInterface({
           </div>
 
           {/* Swap Arrow - Clickable */}
-          <div className="flex justify-center -my-2">
-            <button
+          <div className="flex justify-center -my-2 relative z-10">
+            <Button
               onClick={handleReverseTokens}
-              className="bg-white hover:bg-indigo-50 border-2 border-gray-200 rounded-full p-2 transition-all hover:scale-110 hover:border-indigo-300 cursor-pointer z-10"
-              title="Switch tokens"
+              variant="outline"
+              size="icon"
+              className="rounded-full bg-card hover:bg-accent border-2 border-border hover:border-primary/50 shadow-md hover:shadow-glow transition-all"
             >
-              <svg className="w-5 h-5 text-gray-600 hover:text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
-              </svg>
-            </button>
+              <ArrowDownUp className="w-4 h-4" />
+            </Button>
           </div>
 
           {/* Second Token Input */}
-          <div className="bg-gray-50 rounded-xl p-4">
+          <div className="bg-secondary/30 border border-border rounded-xl p-4 hover:border-primary/50 transition-colors">
             <div className="flex justify-between mb-2">
-              <label className="text-sm font-medium text-gray-600">{tokenB?.symbol || 'Select token'}</label>
-              <span className="text-sm text-gray-500">Balance: {formatNumber(balanceB)}</span>
+              <label className="text-sm font-medium text-muted-foreground">{tokenB?.symbol || 'Select token'}</label>
+              <span className="text-sm text-muted-foreground">Balance: {formatNumber(balanceB)}</span>
             </div>
-            <div className="flex items-center gap-3">
-              <input
+            <div className="flex items-center gap-3 mt-2">
+              <Input
                 type="number"
                 value={amountB}
                 onChange={(e) => setAmountB(e.target.value)}
                 placeholder="0.0"
-                className="flex-1 bg-transparent text-xl font-semibold outline-none"
+                className="flex-1 min-w-0 bg-transparent border-none text-2xl font-semibold h-auto py-1 pl-[5px] pr-0 focus-visible:ring-0 focus-visible:ring-offset-0"
                 disabled={!isFirstLiquidity}
               />
               <TokenSelector
@@ -670,37 +670,42 @@ export default function LiquidityInterface({
               />
             </div>
             {!isFirstLiquidity && (
-              <p className="text-xs text-gray-500 mt-2">
+              <p className="text-xs text-muted-foreground mt-2">
                 Amount calculated based on pool ratio
               </p>
             )}
           </div>
 
           {/* Add Liquidity Button */}
-          <div className="flex justify-center">
+          <div className="flex justify-center pt-2">
             {!tokenA || !tokenB ? (
-              <button
+              <Button
                 disabled
-                className="w-[60%] bg-gray-300 text-white py-3 rounded-xl font-semibold cursor-not-allowed"
+                size="lg"
+                className="w-[60%]"
               >
                 Select tokens
-              </button>
+              </Button>
             ) : needsApprovalA || needsApprovalB ? (
-              <button
+              <Button
                 onClick={approveTokens}
                 disabled={loading || !amountA || !amountB}
-                className="w-[60%] bg-yellow-500 text-white py-3 rounded-xl font-semibold hover:bg-yellow-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+                variant="secondary"
+                size="lg"
+                className="w-[60%] bg-yellow-500/20 text-yellow-400 border-yellow-500/50 hover:bg-yellow-500/30 hover:shadow-glow"
               >
                 {loading ? 'Approving...' : `Approve ${needsApprovalA && needsApprovalB ? 'Tokens' : needsApprovalA ? tokenA.symbol : tokenB.symbol}`}
-              </button>
+              </Button>
             ) : (
-              <button
+              <Button
                 onClick={handleAddLiquidity}
                 disabled={loading || !amountA || !amountB}
-                className="w-[60%] bg-indigo-600 text-white py-3 rounded-xl font-semibold hover:bg-indigo-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+                variant="gradient"
+                size="lg"
+                className="w-[60%]"
               >
                 {loading ? 'Adding Liquidity...' : 'Add Liquidity'}
-              </button>
+              </Button>
             )}
           </div>
         </div>
@@ -828,14 +833,16 @@ export default function LiquidityInterface({
             </div>
           </div>
 
-          <div className="flex justify-center">
-            <button
+          <div className="flex justify-center pt-2">
+            <Button
               onClick={handleRemoveLiquidity}
               disabled={loading || !removeLiquidityAmount || parseFloat(lpBalance) === 0}
-              className="w-[60%] bg-red-500 text-white py-3 rounded-xl font-semibold hover:bg-red-600 disabled:bg-gray-300 disabled:cursor-not-allowed transition"
+              variant="destructive"
+              size="lg"
+              className="w-[60%]"
             >
               {loading ? 'Removing...' : 'Remove Liquidity'}
-            </button>
+            </Button>
           </div>
         </div>
       </TabsContent>

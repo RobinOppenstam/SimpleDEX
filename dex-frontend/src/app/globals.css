@@ -89,6 +89,7 @@
     -webkit-mask-composite: xor;
     mask-composite: exclude;
     opacity: 0.5;
+    pointer-events: none;
   }
 
   .gradient-border:hover::before {

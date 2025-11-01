@@ -8,7 +8,7 @@ import NotificationModal, { NotificationStatus } from './NotificationModal';
 import PriceDisplay from './PriceDisplay';
 import RouteDisplay from './RouteDisplay';
 import { Token, getTokensForNetwork } from '../config/tokens';
-import { formatNumber } from '../utils/formatNumber';
+import { formatNumber, formatInputDisplay } from '../utils/formatNumber';
 import { usePrices } from '../hooks/usePrices';
 import { findBestRoute, hasDirectPair, Route } from '../utils/routing';
 import { ROUTER_ABI, ERC20_ABI } from '../config/contracts';
@@ -192,7 +192,7 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
 
       if (!route) {
         console.warn('No route found between tokens');
-        setAmountOut('0');
+        setAmountOut(formatInputDisplay('0'));
         setPriceImpact(null);
         setCurrentRoute(null);
         return;
@@ -202,15 +202,15 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
       setCurrentRoute(route);
       setIsDirect(hasDirectPair(tokenIn.symbol, tokenOut.symbol));
 
-      // Format output amount
+      // Format output amount with smart decimal handling
       const output = ethers.formatUnits(route.expectedOutput, tokenOut.decimals);
-      setAmountOut(output);
+      setAmountOut(formatInputDisplay(output));
 
       // Calculate price impact
       setPriceImpact(0.3); // Simplified - in production, compare to spot price
     } catch (error) {
       console.error('Error calculating output:', error);
-      setAmountOut('0');
+      setAmountOut(formatInputDisplay('0'));
       setPriceImpact(null);
       setCurrentRoute(null);
     }
@@ -360,14 +360,14 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
             </button>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
+        <div className="flex items-center gap-3 mt-2">
+          <div className="flex-1 min-w-0">
             <Input
               type="number"
               value={amountIn}
               onChange={(e) => setAmountIn(e.target.value)}
               placeholder="0.0"
-              className="bg-transparent border-none text-2xl font-semibold h-auto p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="bg-transparent border-none text-2xl font-semibold h-auto py-1 pl-[5px] pr-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             {tokenIn && amountIn && parseFloat(amountIn) > 0 && (
               <PriceDisplay
@@ -424,14 +424,14 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
             </button>
           )}
         </div>
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
+        <div className="flex items-center gap-3 mt-2">
+          <div className="flex-1 min-w-0">
             <Input
               type="number"
               value={amountOut}
               readOnly
               placeholder="0.0"
-              className="bg-transparent border-none text-2xl font-semibold h-auto p-0 focus-visible:ring-0 focus-visible:ring-offset-0"
+              className="bg-transparent border-none text-2xl font-semibold h-auto py-1 pl-[5px] pr-0 focus-visible:ring-0 focus-visible:ring-offset-0"
             />
             {tokenOut && amountOut && parseFloat(amountOut) > 0 && (
               <PriceDisplay
