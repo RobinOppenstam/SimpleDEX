@@ -49,7 +49,7 @@ export const sepolia = defineChain({
 
 export const config = getDefaultConfig({
   appName: 'SimpleDEX',
-  projectId: 'YOUR_PROJECT_ID', // Get from https://cloud.walletconnect.com
+  projectId: process.env.NEXT_PUBLIC_WALLETCONNECT_PROJECT_ID || 'YOUR_PROJECT_ID', // Get from https://cloud.walletconnect.com
   chains: [anvil, sepolia], // Add Sepolia support
   ssr: true, // For Next.js
 });

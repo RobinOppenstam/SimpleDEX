@@ -138,3 +138,11 @@ docs/
 # Markdown files (except README)
 *.md
 !README.md
+
+# Twitter thread
+TWITTER_THREAD.txt
+twitter-thread.txt
+
+# Deployment guides (keep these)
+!dex-frontend/VERCEL_DEPLOYMENT.md
+!dex-frontend/DEPLOYMENT_SUMMARY.txt
