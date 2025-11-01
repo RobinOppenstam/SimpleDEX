@@ -13,7 +13,7 @@ import { useNetwork } from '@/hooks/useNetwork';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
-import { ArrowDownUp, Plus, Minus } from 'lucide-react';
+import { ArrowDownUp, Plus, Minus, X } from 'lucide-react';
 
 const ROUTER_ABI = [
   'function addLiquidity(address tokenA, address tokenB, uint amountADesired, uint amountBDesired, uint amountAMin, uint amountBMin, address to, uint deadline) external returns (uint amountA, uint amountB, uint liquidity)',
@@ -728,14 +728,14 @@ export default function LiquidityInterface({
 
       {/* Remove Liquidity Section */}
       <TabsContent value="remove" className="space-y-4 mt-0">
-        
+
         <div className="space-y-4">
-          <div className="bg-gray-50 rounded-xl p-4">
+          <div className="bg-secondary/30 border border-border rounded-xl p-4 hover:border-primary/50 transition-colors">
             <div className="flex justify-between mb-2">
-              <label className="text-sm font-medium text-gray-600">LP Tokens</label>
+              <label className="text-sm font-medium text-muted-foreground">LP Tokens</label>
               <button
                 onClick={loadBalances}
-                className="text-sm text-gray-500 hover:text-gray-700 flex items-center gap-1"
+                className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
                 title="Click to refresh balance"
               >
                 Balance: {formatNumber(lpBalance)}
@@ -744,18 +744,18 @@ export default function LiquidityInterface({
                 </svg>
               </button>
             </div>
-            <div className="flex items-center gap-3">
-              <input
+            <div className="flex items-center gap-3 mt-2">
+              <Input
                 type="number"
                 value={removeLiquidityAmount}
                 onChange={(e) => setRemoveLiquidityAmount(e.target.value)}
                 placeholder="0.0"
-                className="flex-1 bg-transparent text-xl font-semibold outline-none"
+                className="flex-1 min-w-0 bg-transparent border-none text-2xl font-semibold h-auto py-1 pl-[5px] pr-0 focus-visible:ring-0 focus-visible:ring-offset-0"
               />
               <div className="relative lp-selector-container -ml-6">
                 <button
                   onClick={() => setLpSelectorOpen(!lpSelectorOpen)}
-                  className="bg-white px-4 py-2 rounded-xl flex items-center gap-2 hover:bg-gray-50 transition-colors border border-gray-200"
+                  className="flex items-center gap-2 bg-card px-4 py-2 rounded-xl font-semibold hover:bg-accent hover:border-primary/50 transition-all border border-border"
                 >
                   {tokenA && tokenB ? (
                     <>
@@ -771,7 +771,7 @@ export default function LiquidityInterface({
                   ) : (
                     <span className="font-semibold text-sm">LP</span>
                   )}
-                  <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className="w-4 h-4 text-muted-foreground" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
                   </svg>
                 </button>
@@ -780,66 +780,66 @@ export default function LiquidityInterface({
                 {lpSelectorOpen && (
                   <>
                     <div
-                      className="fixed inset-0 bg-black bg-opacity-50 z-40"
+                      className="fixed inset-0 bg-black/95 z-40"
                       onClick={() => setLpSelectorOpen(false)}
                     />
 
                     {/* LP Pair Selection Modal - Centered */}
-                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 bg-white rounded-2xl shadow-2xl z-50 w-96 max-h-[400px] flex flex-col">
+                    <div className="fixed top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 glass gradient-border rounded-2xl shadow-glow-lg z-50 w-96 max-h-[400px] flex flex-col">
                       {/* Header */}
-                      <div className="p-4 border-b">
+                      <div className="p-4 border-b border-border shrink-0">
                         <div className="flex justify-between items-center">
-                          <h3 className="text-lg font-bold">Select LP Pair</h3>
-                          <button
+                          <h3 className="text-lg font-bold bg-gradient-silver bg-clip-text text-transparent">Select LP Pair</h3>
+                          <Button
                             onClick={() => setLpSelectorOpen(false)}
-                            className="text-gray-400 hover:text-gray-600"
+                            variant="ghost"
+                            size="icon"
+                            className="h-8 w-8 text-muted-foreground hover:text-foreground"
                           >
-                            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
+                            <X className="w-5 h-5" />
+                          </Button>
                         </div>
                       </div>
 
                       {/* LP Pair List */}
-                      <div className="flex-1 overflow-y-auto rounded-b-2xl">
-                        {SUGGESTED_PAIRS.map((pair, index) => {
-                          const [symbolA, symbolB] = pair;
-                          const pairTokenA = TOKENS[symbolA];
-                          const pairTokenB = TOKENS[symbolB];
-                          const pairKey = `${symbolA}-${symbolB}`;
-                          const balance = lpBalances[pairKey] || '0';
+                      <div className="flex-1 overflow-y-auto">
+                        <div className="divide-y divide-border/50">
+                          {SUGGESTED_PAIRS.map((pair) => {
+                            const [symbolA, symbolB] = pair;
+                            const pairTokenA = TOKENS[symbolA];
+                            const pairTokenB = TOKENS[symbolB];
+                            const pairKey = `${symbolA}-${symbolB}`;
+                            const balance = lpBalances[pairKey] || '0';
 
-                          if (!pairTokenA || !pairTokenB) return null;
+                            if (!pairTokenA || !pairTokenB) return null;
 
-                          return (
-                            <button
-                              key={pairKey}
-                              onClick={() => handleLpPairSelect(pair)}
-                              className={`w-full px-4 py-3 flex items-center justify-between hover:bg-gray-50 transition-colors ${
-                                index === SUGGESTED_PAIRS.length - 1 ? 'rounded-b-2xl' : ''
-                              }`}
-                            >
-                              <div className="flex items-center gap-3">
-                                <LPTokenIcon
-                                  token0LogoURI={pairTokenA.logoURI}
-                                  token1LogoURI={pairTokenB.logoURI}
-                                  token0Symbol={pairTokenA.symbol}
-                                  token1Symbol={pairTokenB.symbol}
-                                  size="sm"
-                                />
-                                <span className="font-medium text-sm">{pairTokenA.symbol}/{pairTokenB.symbol}</span>
-                              </div>
-                              {parseFloat(balance) > 0 && (
-                                <div className="text-right">
-                                  <div className="font-medium text-sm">
-                                    {formatNumber(balance)}
-                                  </div>
+                            return (
+                              <button
+                                key={pairKey}
+                                onClick={() => handleLpPairSelect(pair)}
+                                className="w-full px-4 py-3 flex items-center justify-between hover:bg-accent/50 transition-all"
+                              >
+                                <div className="flex items-center gap-3">
+                                  <LPTokenIcon
+                                    token0LogoURI={pairTokenA.logoURI}
+                                    token1LogoURI={pairTokenB.logoURI}
+                                    token0Symbol={pairTokenA.symbol}
+                                    token1Symbol={pairTokenB.symbol}
+                                    size="sm"
+                                  />
+                                  <span className="font-medium text-sm">{pairTokenA.symbol}/{pairTokenB.symbol}</span>
                                 </div>
-                              )}
-                            </button>
-                          );
-                        })}
+                                {parseFloat(balance) > 0 && (
+                                  <div className="text-right">
+                                    <div className="font-medium text-sm text-muted-foreground">
+                                      {formatNumber(balance)}
+                                    </div>
+                                  </div>
+                                )}
+                              </button>
+                            );
+                          })}
+                        </div>
                       </div>
                     </div>
                   </>
