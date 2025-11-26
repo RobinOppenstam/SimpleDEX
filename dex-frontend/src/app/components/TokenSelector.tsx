@@ -7,9 +7,6 @@ import { Token, getAllTokens, searchTokens } from '../config/tokens';
 import { ethers } from 'ethers';
 import { formatNumber } from '../utils/formatNumber';
 import { useNetwork } from '@/hooks/useNetwork';
-import { Input } from '@/components/ui/input';
-import { Button } from '@/components/ui/button';
-import { ChevronDown, X } from 'lucide-react';
 
 const ERC20_ABI = ['function balanceOf(address) view returns (uint256)'];
 
@@ -53,9 +50,7 @@ export default function TokenSelector({ selectedToken, onSelect, excludeToken, s
       const newBalances: Record<string, string> = {};
 
       for (const token of filteredTokens) {
-        // Skip tokens with empty addresses
         if (!token.address) {
-          console.log(`[TokenSelector] Skipping token ${token.symbol} - empty address`);
           newBalances[token.address] = '0';
           continue;
         }
@@ -65,7 +60,6 @@ export default function TokenSelector({ selectedToken, onSelect, excludeToken, s
           const balance = await contract.balanceOf(address);
           newBalances[token.address] = ethers.formatUnits(balance, token.decimals);
         } catch (error) {
-          console.error(`[TokenSelector] Error loading balance for ${token.symbol}:`, error);
           newBalances[token.address] = '0';
         }
       }
@@ -94,105 +88,292 @@ export default function TokenSelector({ selectedToken, onSelect, excludeToken, s
     };
   }, [isOpen]);
 
+  // Get token color based on symbol (used for fallback/glow)
+  const getTokenColor = (symbol: string) => {
+    const colors: Record<string, string> = {
+      mWETH: '#627eea',
+      mWBTC: '#f7931a',
+      mUSDC: '#2775ca',
+      mUSDT: '#26a17b',
+      mDAI: '#f5ac37',
+      mLINK: '#375bd2',
+    };
+    return colors[symbol] || 'var(--color-neon-primary)';
+  };
+
+  // Render token icon - uses logoURI if available, fallback to colored letter
+  const renderTokenIcon = (token: Token, size: number = 40) => {
+    if (token.logoURI) {
+      return (
+        <img
+          src={token.logoURI}
+          alt={token.symbol}
+          style={{
+            width: `${size}px`,
+            height: `${size}px`,
+            borderRadius: '50%',
+            boxShadow: `0 0 15px ${getTokenColor(token.symbol)}40`,
+            border: '2px solid rgba(255,255,255,0.1)',
+          }}
+        />
+      );
+    }
+    return (
+      <div
+        style={{
+          width: `${size}px`,
+          height: `${size}px`,
+          borderRadius: '50%',
+          background: getTokenColor(token.symbol),
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontWeight: 'bold',
+          color: '#fff',
+          fontSize: `${size * 0.4}px`,
+          boxShadow: `0 0 15px ${getTokenColor(token.symbol)}40`,
+          border: '2px solid rgba(255,255,255,0.1)',
+        }}
+      >
+        {token.symbol[1] || token.symbol[0]}
+      </div>
+    );
+  };
+
   return (
-    <div className="relative">
+    <div style={{ position: 'relative' }}>
       {/* Selected Token Button */}
-      <Button
+      <button
         onClick={() => setIsOpen(!isOpen)}
-        variant="outline"
-        className="flex items-center gap-2 bg-card px-4 py-2 rounded-xl font-semibold hover:bg-accent hover:border-primary/50 transition-all border-border"
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          gap: '8px',
+          background: 'rgba(255,255,255,0.05)',
+          padding: '0.5rem 1rem',
+          borderRadius: '20px',
+          border: '1px solid var(--color-panel-border)',
+          color: 'var(--color-text-main)',
+          fontWeight: 600,
+          cursor: 'pointer',
+          transition: 'all 0.2s',
+          fontFamily: 'var(--font-sans)',
+        }}
+        onMouseEnter={(e) => {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.1)';
+          e.currentTarget.style.borderColor = 'var(--color-text-muted)';
+        }}
+        onMouseLeave={(e) => {
+          e.currentTarget.style.background = 'rgba(255,255,255,0.05)';
+          e.currentTarget.style.borderColor = 'var(--color-panel-border)';
+        }}
       >
         {selectedToken ? (
           <>
-            {selectedToken.logoURI ? (
-              <img src={selectedToken.logoURI} alt={selectedToken.symbol} className="w-6 h-6 rounded-full" />
-            ) : (
-              <div className="w-6 h-6 bg-gradient-silver rounded-full flex items-center justify-center text-white text-xs font-bold">
-                {selectedToken.symbol[0]}
-              </div>
-            )}
+            {renderTokenIcon(selectedToken, 24)}
             <span>{selectedToken.symbol}</span>
           </>
         ) : (
-          <span className="text-muted-foreground">Select token</span>
+          <span style={{ color: 'var(--color-text-muted)' }}>Select</span>
         )}
-        <ChevronDown className="w-4 h-4" />
-      </Button>
+        <span style={{ fontSize: '0.8rem', opacity: 0.7 }}>▼</span>
+      </button>
 
       {/* Modal */}
       {isOpen && mounted && typeof window !== 'undefined' && createPortal(
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-black/95"
+          style={{
+            position: 'fixed',
+            inset: 0,
+            zIndex: 10000,
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            padding: '1rem',
+            background: 'rgba(0,0,0,0.8)',
+            backdropFilter: 'blur(5px)',
+          }}
           onMouseDown={(e) => {
-            // Only close if clicking the backdrop (not the modal content)
             if (e.target === e.currentTarget) {
               setIsOpen(false);
             }
           }}
         >
-          <div className="relative glass gradient-border rounded-2xl shadow-glow-lg w-full max-w-md max-h-[80vh] flex flex-col">
+          <div
+            className="glass-panel"
+            style={{
+              width: '100%',
+              maxWidth: '500px',
+              maxHeight: '80vh',
+              display: 'flex',
+              flexDirection: 'column',
+              border: '1px solid var(--color-neon-dim)',
+              boxShadow: '0 0 50px rgba(0, 255, 65, 0.15)',
+            }}
+          >
             {/* Header */}
-            <div className="p-4 border-b border-border shrink-0">
-              <div className="flex justify-between items-center mb-3">
-                <h3 className="text-lg font-bold bg-gradient-silver bg-clip-text text-transparent">Select a token</h3>
-                <Button
-                  onClick={() => setIsOpen(false)}
-                  variant="ghost"
-                  size="icon"
-                  className="h-8 w-8 text-muted-foreground hover:text-foreground"
-                >
-                  <X className="w-5 h-5" />
-                </Button>
+            <div
+              style={{
+                padding: '1.5rem',
+                borderBottom: '1px solid var(--color-panel-border)',
+                display: 'flex',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+                background: 'rgba(0,255,65,0.05)',
+              }}
+            >
+              <div
+                style={{
+                  fontFamily: 'var(--font-mono)',
+                  fontSize: '1.1rem',
+                  color: 'var(--color-text-main)',
+                }}
+              >
+                SELECT TOKEN
               </div>
+              <button
+                onClick={() => setIsOpen(false)}
+                style={{
+                  background: 'none',
+                  border: 'none',
+                  color: 'var(--color-text-muted)',
+                  fontSize: '1.5rem',
+                  cursor: 'pointer',
+                  padding: '0',
+                  lineHeight: 1,
+                }}
+                onMouseEnter={(e) => {
+                  e.currentTarget.style.color = '#fff';
+                }}
+                onMouseLeave={(e) => {
+                  e.currentTarget.style.color = 'var(--color-text-muted)';
+                }}
+              >
+                ×
+              </button>
+            </div>
 
-              {/* Search Input */}
-              <Input
+            {/* Search */}
+            <div style={{ padding: '1rem 1.5rem' }}>
+              <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
-                placeholder="Search name or paste address"
-                className="w-full"
+                placeholder="Search name or paste address..."
                 autoFocus
+                style={{
+                  width: '100%',
+                  background: 'rgba(0,0,0,0.3)',
+                  border: '1px solid var(--color-panel-border)',
+                  padding: '1rem',
+                  color: 'var(--color-text-main)',
+                  fontFamily: 'var(--font-mono)',
+                  borderRadius: '4px',
+                  outline: 'none',
+                  fontSize: '0.9rem',
+                }}
+                onFocus={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--color-neon-dim)';
+                  e.currentTarget.style.boxShadow = '0 0 10px rgba(0, 255, 65, 0.1)';
+                }}
+                onBlur={(e) => {
+                  e.currentTarget.style.borderColor = 'var(--color-panel-border)';
+                  e.currentTarget.style.boxShadow = 'none';
+                }}
               />
             </div>
 
             {/* Token List */}
-            <div className="flex-1 overflow-y-auto">
+            <div
+              style={{
+                flex: 1,
+                overflowY: 'auto',
+                padding: '0.5rem 0',
+              }}
+            >
               {filteredTokens.length === 0 ? (
-                <div className="p-8 text-center text-muted-foreground">
-                  <p>No tokens found</p>
+                <div
+                  style={{
+                    padding: '2rem',
+                    textAlign: 'center',
+                    color: 'var(--color-text-muted)',
+                    fontFamily: 'var(--font-mono)',
+                  }}
+                >
+                  No tokens found
                 </div>
               ) : (
-                <div className="divide-y divide-border/50">
-                  {filteredTokens.map((token) => (
-                    <button
-                      key={token.address}
-                      onClick={() => handleSelect(token)}
-                      className="w-full px-4 py-3 hover:bg-accent/50 transition-all flex items-center justify-between"
-                    >
-                      <div className="flex items-center gap-3">
-                        {token.logoURI ? (
-                          <img src={token.logoURI} alt={token.symbol} className="w-10 h-10 rounded-full" />
-                        ) : (
-                          <div className="w-10 h-10 bg-gradient-silver rounded-full flex items-center justify-center text-white font-bold shadow-glow">
-                            {token.symbol[0]}
-                          </div>
-                        )}
-                        <div className="text-left">
-                          <div className="font-semibold text-foreground">{token.symbol}</div>
-                          <div className="text-xs text-muted-foreground">{token.name}</div>
+                filteredTokens.map((token) => (
+                  <button
+                    key={token.address}
+                    onClick={() => handleSelect(token)}
+                    style={{
+                      display: 'flex',
+                      alignItems: 'center',
+                      gap: '1rem',
+                      width: '100%',
+                      padding: '1rem 1.5rem',
+                      background: 'transparent',
+                      border: 'none',
+                      borderLeft: '2px solid transparent',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s',
+                      textAlign: 'left',
+                    }}
+                    onMouseEnter={(e) => {
+                      e.currentTarget.style.background = 'rgba(0, 255, 65, 0.05)';
+                      e.currentTarget.style.borderLeftColor = 'var(--color-neon-dim)';
+                    }}
+                    onMouseLeave={(e) => {
+                      e.currentTarget.style.background = 'transparent';
+                      e.currentTarget.style.borderLeftColor = 'transparent';
+                    }}
+                  >
+                    {/* Token Icon */}
+                    {renderTokenIcon(token, 40)}
+
+                    {/* Token Info */}
+                    <div style={{ flex: 1 }}>
+                      <div
+                        style={{
+                          fontFamily: 'var(--font-mono)',
+                          fontWeight: 'bold',
+                          fontSize: '1rem',
+                          color: 'var(--color-text-main)',
+                        }}
+                      >
+                        {token.symbol}
+                      </div>
+                      <div
+                        style={{
+                          fontSize: '0.8rem',
+                          color: 'var(--color-text-muted)',
+                        }}
+                      >
+                        {token.name}
+                      </div>
+                    </div>
+
+                    {/* Balance */}
+                    {balances[token.address] && parseFloat(balances[token.address]) > 0 && (
+                      <div
+                        style={{
+                          textAlign: 'right',
+                          fontFamily: 'var(--font-mono)',
+                        }}
+                      >
+                        <div
+                          style={{
+                            fontWeight: 600,
+                            color: 'var(--color-neon-primary)',
+                          }}
+                        >
+                          {formatNumber(balances[token.address])}
                         </div>
                       </div>
-                      {balances[token.address] && parseFloat(balances[token.address]) > 0 && (
-                        <div className="text-right">
-                          <div className="font-medium text-primary">
-                            {formatNumber(balances[token.address])}
-                          </div>
-                        </div>
-                      )}
-                    </button>
-                  ))}
-                </div>
+                    )}
+                  </button>
+                ))
               )}
             </div>
           </div>

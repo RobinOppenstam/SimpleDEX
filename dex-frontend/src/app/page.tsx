@@ -5,25 +5,38 @@ import { useState } from 'react';
 import { useAccount, useWalletClient, usePublicClient } from 'wagmi';
 import { ethers } from 'ethers';
 import { walletClientToSigner, publicClientToProvider } from '@/app/utils/ethers';
-import { Header } from '@/components/Header';
-import SwapInterface from '@/app/components/SwapInterface';
-import LiquidityInterface from '@/app/components/LiquidityInterface';
-// import PoolInfo from '@/app/components/PoolInfo';
-import LPPositions from '@/app/components/LPPositions';
-import SwapHistory from '@/app/components/SwapHistory';
-import Faucet from '@/app/components/Faucet';
-import Analytics from '@/app/components/Analytics';
-import Market from '@/app/components/Market';
+
+// Effects
+import { MatrixBackground } from '@/app/components/effects/MatrixBackground';
+import { CRTOverlay } from '@/app/components/effects/CRTOverlay';
+
+// Layout
+import { Navbar, TabType } from '@/app/components/layout/Navbar';
+import { HeroSection } from '@/app/components/layout/HeroSection';
+
+// New Dex Components
+import SwapSection from '@/app/components/dex/SwapSection';
+import PriceChart from '@/app/components/dex/PriceChart';
+import PoolsSection from '@/app/components/dex/PoolsSection';
+import FaucetSection from '@/app/components/dex/FaucetSection';
+import MarketSection from '@/app/components/dex/MarketSection';
+import HistorySection from '@/app/components/dex/HistorySection';
+
+// Hooks & Config
 import { useNetwork } from '@/hooks/useNetwork';
+import { usePrices } from '@/app/hooks/usePrices';
 import { Token } from '@/app/config/tokens';
-import { Card } from '@/components/ui/card';
 
 export default function Home() {
-  const [activeTab, setActiveTab] = useState<'swap' | 'liquidity' | 'positions' | 'history' | 'faucet' | 'analytics' | 'market'>('swap');
-  const [liquidityAction, setLiquidityAction] = useState<'add' | 'remove'>('add');
+  const [activeTab, setActiveTab] = useState<TabType>('hero');
+  const [poolsInitialTab, setPoolsInitialTab] = useState<'positions' | 'add' | 'remove'>('positions');
   const [preSelectedTokens, setPreSelectedTokens] = useState<{ tokenA: Token | null; tokenB: Token | null }>({
     tokenA: null,
     tokenB: null,
+  });
+  const [selectedSwapTokens, setSelectedSwapTokens] = useState<{ tokenIn: Token | null; tokenOut: Token | null }>({
+    tokenIn: null,
+    tokenOut: null,
   });
 
   // Get network configuration
@@ -41,6 +54,9 @@ export default function Home() {
   // Fallback to JSON-RPC provider if wagmi provider is not available
   const provider = wagmiProvider || new ethers.JsonRpcProvider('http://localhost:8545');
 
+  // Get prices for the chart
+  const { prices } = usePrices(provider);
+
   // Get network-aware contract addresses
   const CONTRACTS = {
     ROUTER: network?.contracts.router || '',
@@ -50,119 +66,119 @@ export default function Home() {
   // Handle liquidity management from LP Positions
   const handleManageLiquidity = (tokenA: Token, tokenB: Token, action: 'add' | 'remove') => {
     setPreSelectedTokens({ tokenA, tokenB });
-    setLiquidityAction(action);
-    setActiveTab('liquidity');
+    setPoolsInitialTab(action);
+    setActiveTab('pools');
   };
+
+  // Handle entering the app from hero
+  const handleEnterApp = () => {
+    setActiveTab('swap');
+  };
+
+  // Handle token changes from swap section (for price chart)
+  const handleSwapTokenChange = (tokenIn: Token | null, tokenOut: Token | null) => {
+    setSelectedSwapTokens({ tokenIn, tokenOut });
+  };
+
+  // Get current price for chart
+  const chartToken = selectedSwapTokens.tokenOut || selectedSwapTokens.tokenIn;
+  const chartPrice = chartToken ? (prices[chartToken.symbol] || 0) : 0;
+  const chartPriceChange = chartToken?.symbol === 'mWETH' ? 2.5 : chartToken?.symbol === 'mWBTC' ? 1.2 : 0.5;
 
   return (
     <div className="min-h-screen bg-gradient-dark">
-      {/* Header Navbar with Tabs */}
-      <Header activeTab={activeTab} setActiveTab={setActiveTab} />
+      {/* Background Effects */}
+      <MatrixBackground />
+      <CRTOverlay />
+
+      {/* Navigation */}
+      <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
 
       {/* Main Content */}
-      <div className="container mx-auto px-4 py-8">
-        {/* Swap tab - 50% width centered horizontally and vertically */}
-        {activeTab === 'swap' && (
-          <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
-            <div className="w-full max-w-lg">
-              <Card className="gradient-border p-6">
-                {provider && CONTRACTS.ROUTER ? (
-                  <SwapInterface
-                    signer={signer}
-                    provider={provider}
-                    contracts={CONTRACTS}
-                    onTokenChange={() => {
-                      // Token change handler removed (PoolInfo hidden)
-                    }}
-                  />
-                ) : (
-                  <div className="text-center p-8 text-muted-foreground">
-                    <p>Network configuration not loaded. Please ensure you're connected to a supported network (Anvil or Sepolia).</p>
-                    <p className="mt-2 text-sm">Connected chain ID: {network?.chainId || 'unknown'}</p>
-                  </div>
-                )}
-              </Card>
-            </div>
-          </div>
-        )}
+      <main style={{ paddingTop: activeTab === 'hero' ? 0 : '80px' }}>
+        {/* Hero Section */}
+        {activeTab === 'hero' && <HeroSection onEnterApp={handleEnterApp} />}
 
-        {/* Liquidity tab - 50% width centered horizontally and vertically */}
-        {activeTab === 'liquidity' && (
-          <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
-            <div className="w-full max-w-lg">
-              <Card className="gradient-border p-6">
+        {/* App Content */}
+        {activeTab !== 'hero' && (
+          <div className="container mx-auto px-4 py-8">
+            {/* Swap tab - Two column layout with chart */}
+            {activeTab === 'swap' && (
+              <div className="flex items-start justify-center min-h-[calc(100vh-10rem)] gap-8 py-8">
+                {/* Swap Card */}
+                <SwapSection
+                  signer={signer}
+                  provider={provider}
+                  contracts={CONTRACTS}
+                  onTokenChange={handleSwapTokenChange}
+                />
+
+                {/* Price Chart - Hidden on smaller screens */}
+                <div className="hidden lg:block w-full max-w-[450px] h-[500px]">
+                  <PriceChart
+                    tokenSymbol={chartToken?.symbol || 'mWETH'}
+                    tokenLogoURI={chartToken?.logoURI}
+                    currentPrice={chartPrice || 2450.00}
+                    priceChange24h={chartPriceChange}
+                  />
+                </div>
+              </div>
+            )}
+
+            {/* Pools tab - Full width pools interface */}
+            {activeTab === 'pools' && (
+              <div className="py-8">
                 {CONTRACTS.ROUTER ? (
-                  <LiquidityInterface
+                  <PoolsSection
                     signer={signer}
                     contracts={CONTRACTS}
-                    onTokenChange={() => {
-                      // Token change handler removed (PoolInfo hidden)
-                    }}
                     initialTokenA={preSelectedTokens.tokenA}
                     initialTokenB={preSelectedTokens.tokenB}
-                    initialTab={liquidityAction}
+                    initialTab={poolsInitialTab}
                   />
                 ) : (
-                  <div className="text-center p-8 text-muted-foreground">
-                    <p>Network configuration not loaded. Please ensure you're connected to a supported network (Anvil or Sepolia).</p>
-                    <p className="mt-2 text-sm">Connected chain ID: {network?.chainId || 'unknown'}</p>
+                  <div className="flex items-center justify-center min-h-[calc(100vh-10rem)]">
+                    <div className="glass-panel p-8 text-center" style={{ maxWidth: '500px' }}>
+                      <div style={{ fontFamily: 'var(--font-mono)', color: 'var(--color-text-muted)', marginBottom: '0.5rem' }}>
+                        NETWORK_ERROR
+                      </div>
+                      <p style={{ color: 'var(--color-text-muted)', fontSize: '0.9rem' }}>
+                        Please ensure you're connected to a supported network (Anvil or Sepolia).
+                      </p>
+                      <p style={{ marginTop: '0.5rem', fontSize: '0.8rem', color: 'var(--color-text-muted)' }}>
+                        Chain ID: {network?.chainId || 'unknown'}
+                      </p>
+                    </div>
                   </div>
                 )}
-              </Card>
-            </div>
-          </div>
-        )}
+              </div>
+            )}
 
-        {/* History tab - narrow width centered like swap/liquidity */}
-        {activeTab === 'history' && (
-          <div className="flex items-center justify-center min-h-[calc(100vh-8rem)]">
-            <div className="w-full max-w-lg">
-              <Card className="gradient-border p-6">
+            {/* Faucet tab - Full width faucet interface */}
+            {activeTab === 'faucet' && (
+              <div className="py-8">
+                <FaucetSection signer={signer} />
+              </div>
+            )}
+
+            {/* History tab - full width with cyberpunk styling */}
+            {activeTab === 'history' && (
+              <div className="py-8">
                 {signer && (
-                  <SwapHistory signer={signer} contracts={CONTRACTS} />
+                  <HistorySection signer={signer} contracts={CONTRACTS} />
                 )}
-              </Card>
-            </div>
+              </div>
+            )}
+
+            {/* Market tab - full width with cyberpunk styling */}
+            {activeTab === 'market' && (
+              <div className="py-8">
+                {provider && <MarketSection provider={provider} />}
+              </div>
+            )}
           </div>
         )}
-
-        {/* Other tabs - full width */}
-        {activeTab !== 'swap' && activeTab !== 'liquidity' && activeTab !== 'history' && (
-          <div className="max-w-7xl mx-auto">
-            <Card className="gradient-border p-6">
-              {/* Tab Content */}
-              {activeTab === 'positions' && signer && (
-                <LPPositions
-                  signer={signer}
-                  contracts={CONTRACTS}
-                  onManageLiquidity={handleManageLiquidity}
-                />
-              )}
-              {activeTab === 'faucet' && signer && (
-                <Faucet signer={signer} />
-              )}
-              {activeTab === 'analytics' && provider && (
-                <Analytics provider={provider} contracts={CONTRACTS} />
-              )}
-              {activeTab === 'market' && provider && (
-                <Market provider={provider} />
-              )}
-            </Card>
-          </div>
-        )}
-
-        {/* Pool Info Sidebar - Hidden */}
-        {/* <div className="lg:col-span-1">
-          {provider && (
-            <PoolInfo
-              provider={provider}
-              contracts={CONTRACTS}
-              selectedTokenA={selectedTokenA}
-              selectedTokenB={selectedTokenB}
-            />
-          )}
-        </div> */}
-      </div>
+      </main>
     </div>
   );
 }
