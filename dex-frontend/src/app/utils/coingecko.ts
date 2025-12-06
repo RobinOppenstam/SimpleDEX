@@ -21,6 +21,66 @@ export const TOKEN_TO_COINGECKO_ID: Record<string, string> = {
   mUNI: 'uniswap',
 };
 
+export type HistoricalTimeframe = '1H' | '1D' | '1W' | '1M';
+
+/**
+ * Fetch historical price data from CoinGecko API
+ * @param coinId CoinGecko coin ID (e.g., 'ethereum', 'wrapped-bitcoin')
+ * @param timeframe Timeframe for the chart
+ * @returns Array of price points
+ */
+export async function fetchHistoricalPrices(
+  coinId: string,
+  timeframe: HistoricalTimeframe
+): Promise<number[]> {
+  try {
+    // Map timeframe to CoinGecko parameters
+    const params: Record<HistoricalTimeframe, { days: string; interval?: string }> = {
+      '1H': { days: '1' }, // 1 day with 5-min intervals (free tier)
+      '1D': { days: '1' },
+      '1W': { days: '7' },
+      '1M': { days: '30' },
+    };
+
+    const { days } = params[timeframe];
+
+    // CoinGecko market_chart endpoint for historical data
+    const url = `https://api.coingecko.com/api/v3/coins/${coinId}/market_chart?vs_currency=usd&days=${days}`;
+
+    console.log('[CoinGecko] Fetching historical prices:', url);
+
+    const response = await fetch(url, {
+      method: 'GET',
+      headers: {
+        'Accept': 'application/json',
+      },
+    });
+
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('[CoinGecko] Historical API error:', errorText);
+      throw new Error(`CoinGecko API error: ${response.status}`);
+    }
+
+    const data: { prices: [number, number][] } = await response.json();
+
+    // Extract just the prices (data format is [[timestamp, price], ...])
+    let prices = data.prices.map(([, price]) => price);
+
+    // For 1H, take only the last ~12 points (last hour of 5-min intervals)
+    if (timeframe === '1H') {
+      prices = prices.slice(-12);
+    }
+
+    console.log(`[CoinGecko] Historical prices for ${coinId} (${timeframe}):`, prices.length, 'points');
+
+    return prices;
+  } catch (error) {
+    console.error('[CoinGecko] Error fetching historical prices:', error);
+    return [];
+  }
+}
+
 /**
  * Fetch price change data from CoinGecko API
  * Uses the /coins/markets endpoint for more detailed data including 1h changes

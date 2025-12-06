@@ -1,6 +1,7 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useRef, useState, useCallback } from 'react';
+import { fetchHistoricalPrices, TOKEN_TO_COINGECKO_ID, HistoricalTimeframe } from '@/app/utils/coingecko';
 
 interface PriceChartProps {
   tokenSymbol: string;
@@ -9,7 +10,7 @@ interface PriceChartProps {
   priceChange24h?: number;
 }
 
-type Timeframe = '1H' | '1D' | '1W' | '1M';
+type Timeframe = HistoricalTimeframe;
 
 export default function PriceChart({ tokenSymbol, tokenLogoURI, currentPrice, priceChange24h = 0 }: PriceChartProps) {
   // Get token color based on symbol (for fallback)
@@ -28,30 +29,70 @@ export default function PriceChart({ tokenSymbol, tokenLogoURI, currentPrice, pr
   const containerRef = useRef<HTMLDivElement>(null);
   const [activeTimeframe, setActiveTimeframe] = useState<Timeframe>('1D');
   const [priceData, setPriceData] = useState<number[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const fetchedRef = useRef<{ symbol: string; timeframe: Timeframe } | null>(null);
 
-  // Generate mock price data based on timeframe
+  // Generate fallback mock data when API fails or token not supported
+  const generateMockData = useCallback(() => {
+    const points = activeTimeframe === '1H' ? 12 : activeTimeframe === '1D' ? 96 : activeTimeframe === '1W' ? 168 : 720;
+    const volatility = activeTimeframe === '1H' ? 0.002 : activeTimeframe === '1D' ? 0.01 : activeTimeframe === '1W' ? 0.03 : 0.08;
+
+    const data: number[] = [];
+    let price = currentPrice * (1 - (priceChange24h / 100));
+
+    for (let i = 0; i < points; i++) {
+      const change = (Math.random() - 0.48) * volatility * price;
+      price = Math.max(price + change, price * 0.5);
+      data.push(price);
+    }
+
+    data[data.length - 1] = currentPrice;
+    return data;
+  }, [activeTimeframe, currentPrice, priceChange24h]);
+
+  // Fetch real historical price data from CoinGecko
   useEffect(() => {
-    const generateData = () => {
-      const points = activeTimeframe === '1H' ? 60 : activeTimeframe === '1D' ? 96 : activeTimeframe === '1W' ? 168 : 720;
-      const volatility = activeTimeframe === '1H' ? 0.002 : activeTimeframe === '1D' ? 0.01 : activeTimeframe === '1W' ? 0.03 : 0.08;
+    const coinId = TOKEN_TO_COINGECKO_ID[tokenSymbol];
 
-      const data: number[] = [];
-      let price = currentPrice * (1 - (priceChange24h / 100)); // Start from previous price
+    // Skip if we already fetched for this symbol/timeframe combination
+    if (fetchedRef.current?.symbol === tokenSymbol && fetchedRef.current?.timeframe === activeTimeframe) {
+      return;
+    }
 
-      for (let i = 0; i < points; i++) {
-        const change = (Math.random() - 0.48) * volatility * price; // Slight upward bias if positive change
-        price = Math.max(price + change, price * 0.5);
-        data.push(price);
+    // If no CoinGecko ID mapping, use mock data
+    if (!coinId) {
+      console.log(`[PriceChart] No CoinGecko ID for ${tokenSymbol}, using mock data`);
+      setPriceData(generateMockData());
+      return;
+    }
+
+    const fetchData = async () => {
+      setIsLoading(true);
+      try {
+        const historicalPrices = await fetchHistoricalPrices(coinId, activeTimeframe);
+
+        if (historicalPrices.length > 0) {
+          // Update the last price point to current price for accuracy
+          const prices = [...historicalPrices];
+          prices[prices.length - 1] = currentPrice;
+          setPriceData(prices);
+          fetchedRef.current = { symbol: tokenSymbol, timeframe: activeTimeframe };
+          console.log(`[PriceChart] Loaded ${prices.length} real price points for ${tokenSymbol}`);
+        } else {
+          // Fallback to mock data if API returns empty
+          console.log(`[PriceChart] No historical data for ${tokenSymbol}, using mock data`);
+          setPriceData(generateMockData());
+        }
+      } catch (error) {
+        console.error(`[PriceChart] Error fetching historical prices:`, error);
+        setPriceData(generateMockData());
+      } finally {
+        setIsLoading(false);
       }
-
-      // Ensure last point is current price
-      data[data.length - 1] = currentPrice;
-
-      setPriceData(data);
     };
 
-    generateData();
-  }, [activeTimeframe, currentPrice, priceChange24h]);
+    fetchData();
+  }, [tokenSymbol, activeTimeframe, currentPrice, generateMockData]);
 
   // Draw chart
   useEffect(() => {
@@ -281,6 +322,24 @@ export default function PriceChart({ tokenSymbol, tokenLogoURI, currentPrice, pr
           overflow: 'hidden',
         }}
       >
+        {/* Loading Indicator */}
+        {isLoading && (
+          <div
+            style={{
+              position: 'absolute',
+              top: '50%',
+              left: '50%',
+              transform: 'translate(-50%, -50%)',
+              color: 'var(--color-neon-primary)',
+              fontFamily: 'var(--font-mono)',
+              fontSize: '0.8rem',
+              zIndex: 10,
+            }}
+          >
+            LOADING...
+          </div>
+        )}
+
         {/* Grid Lines (decorative) */}
         <div style={{ position: 'absolute', top: '25%', width: '100%', height: '1px', background: 'rgba(255,255,255,0.03)' }} />
         <div style={{ position: 'absolute', top: '50%', width: '100%', height: '1px', background: 'rgba(255,255,255,0.03)' }} />
@@ -292,6 +351,8 @@ export default function PriceChart({ tokenSymbol, tokenLogoURI, currentPrice, pr
             width: '100%',
             height: '100%',
             display: 'block',
+            opacity: isLoading ? 0.3 : 1,
+            transition: 'opacity 0.2s',
           }}
         />
       </div>
