@@ -171,8 +171,13 @@ export default function PoolsSection({
       setPoolsLoading(true);
       const pools: PoolInfo[] = [];
 
-      // Use provider or signer
-      const provider = signer?.provider || new ethers.JsonRpcProvider('http://localhost:8545');
+      // Use provider from signer - if no signer, we can't load pools
+      if (!signer?.provider) {
+        console.log('[PoolsSection] No provider available, skipping pool load');
+        setPoolsLoading(false);
+        return;
+      }
+      const provider = signer.provider;
       const factory = new ethers.Contract(contracts.FACTORY, FACTORY_ABI, provider);
 
       for (const [symbolA, symbolB] of SUGGESTED_PAIRS) {
@@ -222,8 +227,8 @@ export default function PoolsSection({
         }));
 
         try {
-          const aprProvider = signer?.provider || new ethers.JsonRpcProvider('http://localhost:8545');
-          const aprResults = await calculateAPRForPools(poolData, aprProvider);
+          // Use provider from signer (we already checked it exists above)
+          const aprResults = await calculateAPRForPools(poolData, provider);
           pools.forEach((pool) => {
             const aprData = aprResults.get(pool.pairAddress);
             if (aprData) {

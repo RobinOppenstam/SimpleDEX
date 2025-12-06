@@ -9,6 +9,7 @@ interface HeroSectionProps {
 export function HeroSection({ onEnterApp }: HeroSectionProps) {
   const titleRef = useRef<HTMLHeadingElement>(null);
   const [mousePosition, setMousePosition] = useState({ x: 0, y: 0 });
+  const [isTitleHovered, setIsTitleHovered] = useState(false);
 
   // Mouse parallax effect
   useEffect(() => {
@@ -61,8 +62,8 @@ export function HeroSection({ onEnterApp }: HeroSectionProps) {
         ref={titleRef}
         className="hero-title"
         style={{
-          fontSize: 'clamp(3rem, 8vw, 8rem)',
-          fontWeight: 800,
+          fontSize: 'clamp(4rem, 10vw, 10rem)',
+          fontWeight: 700,
           lineHeight: 0.9,
           letterSpacing: '-0.04em',
           marginBottom: '2rem',
@@ -70,15 +71,31 @@ export function HeroSection({ onEnterApp }: HeroSectionProps) {
           mixBlendMode: 'lighten',
           transform: `translate(${mousePosition.x}px, ${mousePosition.y}px)`,
           transition: 'transform 0.1s ease-out',
+          cursor: 'default',
         }}
+        onMouseEnter={() => setIsTitleHovered(true)}
+        onMouseLeave={() => setIsTitleHovered(false)}
       >
-        <span style={{ display: 'block', color: 'var(--color-text-main)' }}>LIQUIDITY</span>
+        <span
+          style={{
+            display: 'inline-block',
+            color: 'var(--color-text-main)',
+            textShadow: isTitleHovered ? '2px 0 var(--color-neon-primary), -2px 0 var(--color-aqua)' : 'none',
+            transition: 'transform 0.1s var(--ease-fluid), text-shadow 0.2s ease',
+          }}
+        >
+          LIQUIDITY
+        </span>
+        <br />
         <span
           className="neon-text"
           style={{
-            display: 'block',
+            display: 'inline-block',
             color: 'var(--color-neon-primary)',
-            textShadow: 'var(--glow-subtle)',
+            textShadow: isTitleHovered
+              ? '2px 0 var(--color-neon-primary), -2px 0 var(--color-aqua), var(--glow-subtle)'
+              : 'var(--glow-subtle)',
+            transition: 'transform 0.3s var(--ease-fluid), text-shadow 0.2s ease',
           }}
         >
           DECODED
@@ -114,32 +131,7 @@ export function HeroSection({ onEnterApp }: HeroSectionProps) {
       </button>
 
       {/* Scroll Indicator */}
-      <div
-        className="scroll-indicator"
-        style={{
-          position: 'absolute',
-          bottom: '2rem',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: '0.5rem',
-          fontFamily: 'var(--font-mono)',
-          fontSize: '0.75rem',
-          color: 'var(--color-neon-dim)',
-          opacity: 0.7,
-          animation: 'float 3s ease-in-out infinite',
-        }}
-      >
-        <span>INITIALIZE</span>
-        <div
-          className="scroll-line"
-          style={{
-            width: '1px',
-            height: '60px',
-            background: 'linear-gradient(to bottom, var(--color-neon-primary), transparent)',
-          }}
-        />
-      </div>
+      
 
       {/* Decorative grid lines (optional visual enhancement) */}
       <div

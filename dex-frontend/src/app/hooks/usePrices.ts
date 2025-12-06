@@ -1,7 +1,7 @@
 // hooks/usePrices.ts
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { ethers } from 'ethers';
 import { getTokensForNetwork } from '../config/tokens';
 import { PRICE_ORACLE_ABI, formatPrice } from '../config/priceFeeds';
@@ -43,10 +43,16 @@ export function usePrices(
   const [error, setError] = useState<Error | null>(null);
   const [lastUpdate, setLastUpdate] = useState<Date | null>(null);
 
+  // Use refs to track if we've already fetched to prevent duplicate calls
+  const hasFetchedPrices = useRef(false);
+  const hasFetchedCoinGecko = useRef(false);
+  const isFetching = useRef(false);
+
   // Use network-specific refresh interval or override
   // Convert network interval from seconds to milliseconds
   const actualRefreshInterval = refreshInterval ?? (network?.features.priceUpdateInterval ?? 15) * 1000;
   const priceOracleAddress = network?.contracts.priceOracle || '';
+  const chainId = network?.chainId || 31337;
 
   // Fetch price changes from CoinGecko
   const fetchPriceChanges = useCallback(async () => {
@@ -61,6 +67,12 @@ export function usePrices(
   }, []);
 
   const fetchPrices = useCallback(async () => {
+    // Prevent concurrent fetches
+    if (isFetching.current) {
+      console.log('[usePrices] Already fetching, skipping...');
+      return;
+    }
+
     if (!provider) {
       console.log('[usePrices] No provider available');
       setLoading(false);
@@ -74,14 +86,14 @@ export function usePrices(
     }
 
     try {
+      isFetching.current = true;
       console.log('[usePrices] Fetching prices from oracle:', priceOracleAddress);
-      console.log('[usePrices] Network:', network?.name, '| Real feeds:', network?.features.realPriceFeeds);
       setError(null);
       const oracle = new ethers.Contract(priceOracleAddress, PRICE_ORACLE_ABI, provider);
       const newPrices: TokenPrices = {};
 
       // Get tokens for current network
-      const tokens = getTokensForNetwork(network?.chainId || 31337);
+      const tokens = getTokensForNetwork(chainId);
 
       // Fetch prices for all tokens
       for (const [symbol, token] of Object.entries(tokens)) {
@@ -122,22 +134,35 @@ export function usePrices(
       console.error('[usePrices] Error fetching prices:', err);
       setError(err instanceof Error ? err : new Error('Unknown error'));
       setLoading(false);
+    } finally {
+      isFetching.current = false;
     }
-  }, [provider, priceOracleAddress, network]);
+  }, [provider, priceOracleAddress, chainId]);
 
-  // Initial fetch for prices
+  // Initial fetch for prices - only run once when provider and oracle are ready
   useEffect(() => {
+    if (!provider || !priceOracleAddress || hasFetchedPrices.current) return;
+
+    hasFetchedPrices.current = true;
     fetchPrices();
-  }, [provider]);
+  }, [provider, priceOracleAddress, fetchPrices]);
 
-  // Initial fetch for CoinGecko price changes
+  // Reset fetch flag when network changes
   useEffect(() => {
+    hasFetchedPrices.current = false;
+  }, [chainId]);
+
+  // Initial fetch for CoinGecko price changes - only run once
+  useEffect(() => {
+    if (hasFetchedCoinGecko.current) return;
+
+    hasFetchedCoinGecko.current = true;
     fetchPriceChanges();
   }, [fetchPriceChanges]);
 
   // Set up periodic refresh for prices (only if interval > 0, for static prices on Anvil we don't refresh)
   useEffect(() => {
-    if (!provider || actualRefreshInterval === 0) return;
+    if (!provider || !priceOracleAddress || actualRefreshInterval === 0) return;
 
     console.log(`[usePrices] Setting up price refresh every ${actualRefreshInterval / 1000}s`);
     const interval = setInterval(() => {
@@ -145,7 +170,7 @@ export function usePrices(
     }, actualRefreshInterval);
 
     return () => clearInterval(interval);
-  }, [provider, actualRefreshInterval, fetchPrices]);
+  }, [provider, priceOracleAddress, actualRefreshInterval, fetchPrices]);
 
   // Set up periodic refresh for CoinGecko price changes (every 5 minutes)
   useEffect(() => {
@@ -156,24 +181,6 @@ export function usePrices(
 
     return () => clearInterval(interval);
   }, [fetchPriceChanges]);
-
-  // Subscribe to new blocks for more real-time updates (optional)
-  useEffect(() => {
-    if (!provider) return;
-
-    const handleBlock = () => {
-      // Refresh prices on every new block
-      // You can throttle this if it's too frequent
-      fetchPrices();
-    };
-
-    // Comment this out if it causes too many updates
-    // provider.on('block', handleBlock);
-
-    return () => {
-      // provider.off('block', handleBlock);
-    };
-  }, [provider, fetchPrices]);
 
   return {
     prices,

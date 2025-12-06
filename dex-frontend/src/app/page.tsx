@@ -1,9 +1,8 @@
 // app/page.tsx
 'use client';
 
-import { useState } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useAccount, useWalletClient, usePublicClient } from 'wagmi';
-import { ethers } from 'ethers';
 import { walletClientToSigner, publicClientToProvider } from '@/app/utils/ethers';
 
 // Effects
@@ -47,12 +46,12 @@ export default function Home() {
   const { data: walletClient } = useWalletClient();
   const publicClient = usePublicClient();
 
-  // Convert wagmi clients to ethers providers/signers
-  const signer = walletClient ? walletClientToSigner(walletClient) : null;
-  const wagmiProvider = publicClient ? publicClientToProvider(publicClient) : null;
+  // Convert wagmi clients to ethers providers/signers - memoized to prevent unnecessary re-renders
+  const signer = useMemo(() => walletClient ? walletClientToSigner(walletClient) : null, [walletClient]);
+  const wagmiProvider = useMemo(() => publicClient ? publicClientToProvider(publicClient) : null, [publicClient]);
 
-  // Fallback to JSON-RPC provider if wagmi provider is not available
-  const provider = wagmiProvider || new ethers.JsonRpcProvider('http://localhost:8545');
+  // Only use wagmi provider - no fallback to avoid connection errors when wallet not connected
+  const provider = wagmiProvider;
 
   // Get prices for the chart
   const { prices } = usePrices(provider);
@@ -75,10 +74,16 @@ export default function Home() {
     setActiveTab('swap');
   };
 
-  // Handle token changes from swap section (for price chart)
-  const handleSwapTokenChange = (tokenIn: Token | null, tokenOut: Token | null) => {
-    setSelectedSwapTokens({ tokenIn, tokenOut });
-  };
+  // Handle token changes from swap section (for price chart) - memoized to prevent loops
+  const handleSwapTokenChange = useCallback((tokenIn: Token | null, tokenOut: Token | null) => {
+    setSelectedSwapTokens(prev => {
+      // Only update if tokens actually changed
+      if (prev.tokenIn?.address === tokenIn?.address && prev.tokenOut?.address === tokenOut?.address) {
+        return prev;
+      }
+      return { tokenIn, tokenOut };
+    });
+  }, []);
 
   // Get current price for chart
   const chartToken = selectedSwapTokens.tokenOut || selectedSwapTokens.tokenIn;
@@ -86,16 +91,16 @@ export default function Home() {
   const chartPriceChange = chartToken?.symbol === 'mWETH' ? 2.5 : chartToken?.symbol === 'mWBTC' ? 1.2 : 0.5;
 
   return (
-    <div className="min-h-screen bg-gradient-dark">
-      {/* Background Effects */}
-      <MatrixBackground />
+    <div className="min-h-screen relative">
+      {/* Background Effects - Matrix only on hero, CRT on all pages */}
+      {activeTab === 'hero' && <MatrixBackground />}
       <CRTOverlay />
 
       {/* Navigation */}
       <Navbar activeTab={activeTab} onTabChange={setActiveTab} />
 
-      {/* Main Content */}
-      <main style={{ paddingTop: activeTab === 'hero' ? 0 : '80px' }}>
+      {/* Main Content - above background effects */}
+      <main style={{ paddingTop: activeTab === 'hero' ? 0 : '80px', position: 'relative', zIndex: 1 }}>
         {/* Hero Section */}
         {activeTab === 'hero' && <HeroSection onEnterApp={handleEnterApp} />}
 

@@ -350,6 +350,14 @@ section {
 }
 
 /*
+ * HERO SECTION
+ */
+
+.hero-title:hover span {
+  text-shadow: 2px 0 var(--color-neon-primary), -2px 0 var(--color-aqua);
+}
+
+/*
  * ANIMATIONS
  */
 

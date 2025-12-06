@@ -16,7 +16,7 @@ import { useNetwork } from '@/hooks/useNetwork';
 
 interface SwapSectionProps {
   signer: ethers.Signer | null;
-  provider: ethers.Provider;
+  provider: ethers.Provider | null;
   contracts: {
     ROUTER: string;
     FACTORY: string;
@@ -83,14 +83,19 @@ export default function SwapSection({ signer, provider, contracts, onTokenChange
     setBalanceOut('0');
   }, [chainId, TOKENS]);
 
+  // Load balances when signer changes
   useEffect(() => {
-    if (tokenIn && tokenOut) {
+    if (tokenIn && tokenOut && signer) {
       loadBalances();
-      if (onTokenChange) {
-        onTokenChange(tokenIn, tokenOut);
-      }
     }
-  }, [tokenIn, tokenOut, signer, chainId]);
+  }, [signer]);
+
+  // Notify parent of token changes (separate effect to avoid loops)
+  useEffect(() => {
+    if (tokenIn && tokenOut && onTokenChange) {
+      onTokenChange(tokenIn, tokenOut);
+    }
+  }, [tokenIn?.address, tokenOut?.address]);
 
   useEffect(() => {
     if (amountIn && parseFloat(amountIn) > 0 && tokenIn && tokenOut) {
@@ -122,7 +127,7 @@ export default function SwapSection({ signer, provider, contracts, onTokenChange
   };
 
   const calculateOutput = async () => {
-    if (!tokenIn || !tokenOut) return;
+    if (!tokenIn || !tokenOut || !provider) return;
 
     try {
       const amountInWei = ethers.parseUnits(amountIn, tokenIn.decimals);
@@ -463,21 +468,23 @@ export default function SwapSection({ signer, provider, contracts, onTokenChange
         {/* Gas/Rate Info */}
         {exchangeRate && tokenIn && tokenOut && (
           <div
+            className="gas-info"
             style={{
               display: 'flex',
               justifyContent: 'space-between',
               fontFamily: 'var(--font-mono)',
               fontSize: '0.8rem',
               color: 'var(--color-text-muted)',
-              margin: '1.5rem 0',
-              padding: '0.5rem',
-              borderTop: '1px dashed var(--color-panel-border)',
-              borderBottom: '1px dashed var(--color-panel-border)',
+              margin: '1rem 0',
+              padding: '0.75rem',
+              background: 'rgba(0, 0, 0, 0.2)',
+              borderRadius: '6px',
+              border: '1px solid var(--color-panel-border)',
             }}
           >
             <span>RATE: 1 {tokenIn.symbol} = {exchangeRate} {tokenOut.symbol}</span>
             <span>
-              SLIPPAGE: <span style={{ color: 'var(--color-neon-primary)' }}>5%</span>
+              GAS: <span style={{ color: 'var(--color-neon-primary)' }}>~$4.20</span>
             </span>
           </div>
         )}

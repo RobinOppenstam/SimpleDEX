@@ -345,7 +345,7 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
   };
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4" style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
       {/* From Token */}
       <div className="bg-secondary/30 border border-border rounded-xl p-4 hover:border-primary/50 transition-colors">
         <div className="flex justify-between mb-2">
@@ -479,8 +479,32 @@ export default function SwapInterface({ signer, provider, contracts, onTokenChan
         </div>
       )}
 
+      {/* Gas Info */}
+      {amountOut && parseFloat(amountOut) > 0 && tokenIn && tokenOut && (
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            fontFamily: 'var(--font-mono)',
+            fontSize: '0.8rem',
+            color: 'var(--color-text-muted)',
+            padding: '0.75rem 1rem',
+            background: 'rgba(255, 255, 255, 0.02)',
+            borderRadius: '8px',
+            border: '1px solid var(--color-panel-border)',
+          }}
+        >
+          <span>
+            RATE: 1 {tokenIn.symbol} = {formatNumber(parseFloat(amountOut) / parseFloat(amountIn))} {tokenOut.symbol}
+          </span>
+          <span>
+            GAS: <span style={{ color: 'var(--color-neon-primary)' }}>~$4.20</span>
+          </span>
+        </div>
+      )}
+
       {/* Action Button */}
-      <div className="flex justify-center pt-2">
+      <div className="flex justify-center pt-4">
         {!signer ? (
           <ConnectButton.Custom>
             {({ openConnectModal }) => (
